@@ -2,3 +2,4 @@ Data/
 ImageTools/bin/
 .ipynb_checkpoints/
 ImageTools/.idea/
+*.pyc
