@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(ImageConverter)
+project(ImageTools)
 
 configure_file( ${CMAKE_SOURCE_DIR}/converter_runner.py  ${CMAKE_BINARY_DIR}/converter_runner.py COPYONLY)
 configure_file( ${CMAKE_SOURCE_DIR}/trimmer_runner.py  ${CMAKE_BINARY_DIR}/trimmer_runner.py COPYONLY)
