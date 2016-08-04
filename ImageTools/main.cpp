@@ -4,41 +4,84 @@
  */
 
 #include <vector>
+#include <thread>
 #include <iostream>
+#include <sstream>
 #include "itkImage.h"
 #include "itkGDCMImageIO.h"
 #include "itkGDCMSeriesFileNames.h"
 #include "itkImageSeriesReader.h"
 #include "itkImageFileWriter.h"
+#include "itkShrinkImageFilter.h"
+
+
+#ifdef _WIN32
+#include <direct.h>
+#elif defined __linux__
+#include <sys/stat.h>
+#endif
+
+typedef signed short    PixelType;
+const unsigned int      Dimension = 3;
+typedef itk::Image< PixelType, Dimension >         ImageType;
+typedef itk::ImageSeriesReader< ImageType >        ReaderType;
+typedef itk::ShrinkImageFilter< ImageType, ImageType> FilterType;
+
+typedef itk::ImageSeriesReader< ImageType >        ReaderType;
+typedef itk::GDCMSeriesFileNames NamesGeneratorType;
+
+typedef std::vector<int> IntVector;
+typedef std::vector<std::thread> ThreadVector;
+
+void shrinkAndWriteImage(int factor, ReaderType::Pointer input, std::string outputFilename) {
+	FilterType::Pointer filter = FilterType::New();
+	filter->SetInput(input->GetOutput());
+	filter->SetShrinkFactor(0, factor);
+	filter->SetShrinkFactor(1, factor);
+	filter->SetShrinkFactor(2, factor);
+
+	typedef itk::ImageFileWriter< ImageType > WriterType;
+	WriterType::Pointer writer = WriterType::New();
+
+	writer->SetFileName(outputFilename);
+	writer->UseCompressionOn();
+	writer->SetInput(filter->GetOutput());
+	std::cout << "Writing: " << outputFilename << std::endl;
+	try {
+		writer->Update();
+	}
+	catch (itk::ExceptionObject &ex) {
+		std::cout << ex << std::endl;
+	}
+}
 
 int main(int argc, char* argv[])
 {
-    if (argc < 2)
+	IntVector shrinkFactors;
+	
+	shrinkFactors.push_back(2);
+	shrinkFactors.push_back(3);
+	shrinkFactors.push_back(5);
+	shrinkFactors.push_back(7);
+
+	if (argc < 4)
     {
         std::cerr << "Usage: " << std::endl;
-        std::cerr << argv[0] << " [DicomDirectory outputFileName]";
-        std::cerr << "\nIf DicomDirectory is not specified, current directory is used\n";
+		std::cerr << argv[0] << " DicomDirectory OutputDirectory Basename" << std::endl;
+		return EXIT_FAILURE;
     }
 
-    typedef signed short    PixelType;
-    const unsigned int      Dimension = 3;
-    typedef itk::Image< PixelType, Dimension >         ImageType;
-    typedef itk::ImageSeriesReader< ImageType >        ReaderType;
-    std::string dirName = "."; //current directory by default
-    //dirName = "/home/mostafa/SummerProject/Data/CU100010";
-    if (argc > 1)
-    {
-        dirName = argv[1];
-    }
-
-    typedef itk::ImageSeriesReader< ImageType >        ReaderType;
-    typedef itk::GDCMSeriesFileNames NamesGeneratorType;
     NamesGeneratorType::Pointer nameGenerator = NamesGeneratorType::New();
 
-    nameGenerator->SetUseSeriesDetails(true);
+	std::string dicomDirName = argv[1];
+	std::string outputDirName= argv[2];
+	std::string basename = argv[3];
+
+	nameGenerator->SetUseSeriesDetails(true);
     nameGenerator->AddSeriesRestriction("0008|0021");
     nameGenerator->SetGlobalWarningDisplay(false);
-    nameGenerator->SetDirectory(dirName);
+    nameGenerator->SetDirectory(dicomDirName);
+
 
     try
     {
@@ -50,13 +93,13 @@ int main(int argc, char* argv[])
         if (seriesItr != seriesEnd)
         {
             std::cout << "The directory: ";
-            std::cout << dirName << std::endl;
+            std::cout << dicomDirName << std::endl;
             std::cout << "Contains the following DICOM Series: ";
             std::cout << std::endl;
         }
         else
         {
-            std::cout << "No DICOMs in: " << dirName << std::endl;
+            std::cout << "No DICOMs in: " << dicomDirName << std::endl;
             return EXIT_SUCCESS;
         }
 
@@ -84,31 +127,25 @@ int main(int argc, char* argv[])
             ImageIOType::Pointer dicomIO = ImageIOType::New();
             reader->SetImageIO(dicomIO);
             reader->SetFileNames(fileNames);
+			reader->Update();
 
-            typedef itk::ImageFileWriter< ImageType > WriterType;
-            WriterType::Pointer writer = WriterType::New();
-            std::string outFileName;
-            if (argc > 2)
-            {
-                outFileName = argv[2];
-            }
-            else
-            {
-                outFileName = dirName + std::string("/") + seriesIdentifier + ".nrrd";
-            }
-            writer->SetFileName(outFileName);
-            writer->UseCompressionOn();
-            writer->SetInput(reader->GetOutput());
-            std::cout << "Writing: " << outFileName << std::endl;
-            try
-            {
-                writer->Update();
-            }
-            catch (itk::ExceptionObject &ex)
-            {
-                std::cout << ex << std::endl;
-                continue;
-            }
+			ThreadVector threads;
+			for (IntVector::iterator it = shrinkFactors.begin(); it != shrinkFactors.end(); ++it) {
+				std::stringstream ssd;
+				ssd << outputDirName << "/" << *it << "/";
+				mkdir(ssd.str().c_str());
+				
+				std::stringstream ssf;
+				ssf << outputDirName << "/" << *it << "/" << basename << ".nrrd";
+				threads.push_back(std::thread(shrinkAndWriteImage, *it, reader, ssf.str()));
+			}
+			
+			for (ThreadVector::iterator it = threads.begin(); it != threads.end(); ++it) {
+				if ((*it).joinable()) {
+					(*it).join();
+				}
+			}
+
         }
     }
     catch (itk::ExceptionObject &ex)
