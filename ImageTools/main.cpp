@@ -16,9 +16,9 @@
 
 
 #ifdef _WIN32
-#include <direct.h>
+    #include <direct.h>
 #elif defined __linux__
-#include <sys/stat.h>
+    #include <sys/stat.h>
 #endif
 
 typedef signed short    PixelType;
@@ -133,8 +133,11 @@ int main(int argc, char* argv[])
 			for (IntVector::iterator it = shrinkFactors.begin(); it != shrinkFactors.end(); ++it) {
 				std::stringstream ssd;
 				ssd << outputDirName << "/" << *it << "/";
+#ifdef _WIN32
 				mkdir(ssd.str().c_str());
-				
+#elif defined __linux__
+                mkdir(ssd.str().c_str(), 0755 );
+#endif
 				std::stringstream ssf;
 				ssf << outputDirName << "/" << *it << "/" << basename << ".nrrd";
 				threads.push_back(std::thread(shrinkAndWriteImage, *it, reader, ssf.str()));
