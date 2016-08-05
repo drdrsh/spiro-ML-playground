@@ -8,13 +8,17 @@ configure_file( ${CMAKE_SOURCE_DIR}/dicom_to_numpy.py  ${CMAKE_BINARY_DIR}/dicom
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-find_package(ITK REQUIRED)
-include(${ITK_USE_FILE})
+FIND_PACKAGE(ITK REQUIRED)
+INCLUDE(${ITK_USE_FILE})
 
-add_executable(ImageConverter main.cpp)
-target_link_libraries(ImageConverter ${ITK_LIBRARIES})
+FIND_PACKAGE( Boost REQUIRED )
+INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
+
+add_executable(ImageMultiRes ImageMultiRes.cpp)
+target_link_libraries(ImageMultiRes ${ITK_LIBRARIES} ${Boost_LIBRARIES})
 
 add_executable(LungSegment LungSegment.cpp)
-target_link_libraries(LungSegment ${ITK_LIBRARIES})
+target_link_libraries(LungSegment ${ITK_LIBRARIES} ${Boost_LIBRARIES})
 
-
+add_executable(ImageDownsample ImageDownsample.cpp)
+target_link_libraries(ImageDownsample ${ITK_LIBRARIES} ${Boost_LIBRARIES})
