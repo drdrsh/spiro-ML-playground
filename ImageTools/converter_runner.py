@@ -17,4 +17,4 @@ for x in os.walk(sys.argv[1]):
     except:
         pass
 
-    subprocess.call(['./Debug/ImageConverter', full_input_path, full_output_path, basename])
+    subprocess.call(['./Debug/ImageMultiRes', full_input_path, full_output_path, basename])

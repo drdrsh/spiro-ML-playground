@@ -144,6 +144,12 @@ int main(int argc, char* argv[])
 			}
 			
 			for (ThreadVector::iterator it = threads.begin(); it != threads.end(); ++it) {
+                /*
+                 * A quick and dirty way of waiting for all threads to finish
+                 * thread that hasn't started execution is "non-joinable" so if, for any reason, threads created in the
+                 * previous loop don't start execution right away, the main thread will go through this loop blazing fast
+                 * and exit the program killing all other threads.
+                 */
 				if ((*it).joinable()) {
 					(*it).join();
 				}
