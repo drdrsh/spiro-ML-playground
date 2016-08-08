@@ -193,7 +193,7 @@ void deform_tps(ImageType::Pointer inputImage, std::string outputFilename) {
 	save_image(resampler->GetOutput(), outputFilename);
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, const char* argv[]) {
 	
 	try {
 
@@ -202,7 +202,8 @@ int main(int argc, char* argv[]) {
 		desc.add_options()
 			("help,h", "Help screen")
 			("input,i", po::value<std::string>()->default_value(""), "Input filename.")
-			("output,o", po::value<std::string>()->default_value(""), "Output directory.");
+            ("output,o", po::value<std::string>()->default_value(""), "Output directory.")
+            ("count,c", po::value<unsigned int>()->default_value(50), "Number of augmentation for the image.");
 
 		boost::program_options::variables_map vm;
 		boost::program_options::store(po::parse_command_line(argc, argv, desc), vm);
@@ -218,14 +219,16 @@ int main(int argc, char* argv[]) {
 			return EXIT_FAILURE;
 		}
 
-		if (!vm.count("output")) {
-			std::cerr << "No output directory was specified" << std::endl;
-			return EXIT_FAILURE;
-		}
+        if (!vm.count("output")) {
+            std::cerr << "No output directory was specified" << std::endl;
+            return EXIT_FAILURE;
+        }
 
 
-		std::string inputFilename = vm["input"].as<std::string>();
-		std::string outputDirName = vm["output"].as<std::string>();
+
+        const std::string inputFilename = vm["input"].as<std::string>();
+        const std::string outputDirName = vm["output"].as<std::string>();
+        const unsigned int augment_count = vm["count"].as<unsigned int>();
 
 		ReaderType::Pointer reader = ReaderType::New();
 		reader->SetFileName(inputFilename);
@@ -241,7 +244,6 @@ int main(int argc, char* argv[]) {
 
 		enum operation {NOISE, TPS, ROTATE};
 
-		const unsigned int augment_count = 50;
 		ThreadVector threads;
 		for (unsigned int i = 0; i < augment_count; i++) {
 
