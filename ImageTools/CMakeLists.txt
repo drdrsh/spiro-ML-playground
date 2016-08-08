@@ -5,9 +5,11 @@ project(ImageTools)
 configure_file( ${CMAKE_SOURCE_DIR}/converter_runner.py  ${CMAKE_BINARY_DIR}/converter_runner.py COPYONLY)
 configure_file( ${CMAKE_SOURCE_DIR}/trimmer_runner.py    ${CMAKE_BINARY_DIR}/trimmer_runner.py   COPYONLY)
 configure_file( ${CMAKE_SOURCE_DIR}/dicom_to_numpy.py    ${CMAKE_BINARY_DIR}/dicom_to_numpy.py   COPYONLY)
+configure_file( ${CMAKE_SOURCE_DIR}/augmenter_runner.py  ${CMAKE_BINARY_DIR}/augmenter_runner.py   COPYONLY)
 
-set(Boost_INCLUDE_DIR C:/Libraries/boost_1_61_0/)
-set(BOOST_LIBRARYDIR C:/Libraries/boost_1_61_0/stage/libs/x64)
+
+#set(Boost_INCLUDE_DIR C:/Libraries/boost_1_61_0/)
+#set(BOOST_LIBRARYDIR C:/Libraries/boost_1_61_0/stage/libs/x64)
 SET(Boost_USE_STATIC_LIBS ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -15,7 +17,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 FIND_PACKAGE(ITK REQUIRED)
 INCLUDE(${ITK_USE_FILE})
 
-FIND_PACKAGE(Boost 1.61.0 COMPONENTS filesystem program_options system REQUIRED )
+FIND_PACKAGE(Boost 1.58.0 COMPONENTS filesystem program_options system REQUIRED )
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
 LINK_DIRECTORIES(${LINK_DIRECTORIES} ${Boost_LIBRARY_DIRS})
 
