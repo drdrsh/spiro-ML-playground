@@ -1,17 +1,19 @@
 import tensorflow as tf
 
 # Create some wrappers for simplicity
-def conv3d(x, W, b, strides=1):
+def conv3d(x, W, b, name, strides=1):
     # Conv2D wrapper, with bias and relu activation
-    
-    x = tf.nn.conv3d(x, W, strides=[1, strides, strides, strides, 1], padding='SAME')
+    print(name)
+    print(x.get_shape())
+    print(W.get_shape())
+    x = tf.nn.conv3d(x, W, strides=[1, strides, strides, strides, 1], padding='SAME', name=name)
     x = tf.nn.bias_add(x, b)
     return tf.nn.relu(x)
 
 def maxpool3d(x, k=2):
     # MaxPool2D wrapper
-    return tf.nn.max_pool3d(x, ksize=[1, k, k, k, 1], strides=[1, k, k, k, 1],
-                          padding='SAME')
+    return tf.nn.max_pool3d(x, ksize=[1, k, k, k, 1], strides=[1, 1, 1, 1, 1],
+                          padding='VALID')
 
 
 # Create model
@@ -24,12 +26,12 @@ def conv_net(x, data_shape, weights, biases, dropout):
     x = tf.reshape(x, shape=shape)
 
     # Convolution Layer
-    conv1 = conv3d(x, weights['wc1'], biases['bc1'])
+    conv1 = conv3d(x, weights['wc1'], biases['bc1'], "conv1")
     # Max Pooling (down-sampling)
     conv1 = maxpool3d(conv1, k=2)
 
     # Convolution Layer
-    conv2 = conv3d(conv1, weights['wc2'], biases['bc2'])
+    conv2 = conv3d(conv1, weights['wc2'], biases['bc2'], "conv2")
     # Max Pooling (down-sampling)
     conv2 = maxpool3d(conv2, k=2)
 
