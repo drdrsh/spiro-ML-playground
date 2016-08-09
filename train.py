@@ -4,7 +4,7 @@ import Dataset
 from convnet import *
 
 sess = None
-data_manager = Dataset.DatasetManager('./Data/np/7/', target_shape=(96, 96 ,96))
+data_manager = Dataset.DatasetManager('./Data/np/10/', target_shape=(64, 64, 64))
 
 ds = data_manager.get_current_dataset()
 
@@ -40,16 +40,22 @@ weights = {
     # 96 Filters of shape 5x5x5x1
     'wc1': tf.Variable(tf.random_normal([5, 5, 5, 1, 12])),
     
-    # Due to padding the output size remains the same @ 96x96x96x1
-    # maxpool3d with k = 2 and stride= 2
-    # Output of maxpool3d = ( (96-2)/2 )  + 1 = 48
-    # Output volume 48x48x48x96 (Filter number remains the same after maxpooling)
+    # Due to padding the output size remains the same @ 64x64x64x12
+    # maxpool3d with k = 6 and stride= 2
+    # Output of maxpool3d = ( (64-6)/2 )  + 1 = 30
+    # Output volume 30x30x30x12 (Filter number remains the same after maxpooling)
     
-    # 48 Filters of shape 5x5x5x96
+    # 12 Filters of shape 5x5x5x12
     'wc2': tf.Variable(tf.random_normal([5, 5, 5, 12, 12])),
+
+    # Due to padding the output size remains the same @ 30x30x30x12
+    # maxpool3d with k = 6 and stride= 2
+    # Output of maxpool3d = ( (30-2)/2 ) + 1 = 15
+    # Output volume 15x15x15x12 (Filter number remains the same after maxpooling)
+
     
     # fully connected, 7*7*48 inputs, 256 outputs
-    'wd1': tf.Variable(tf.random_normal([6*6*6*12, 256])),
+    'wd1': tf.Variable(tf.random_normal([15*15*15*12, 256])),
     # 256 inputs, 2 outputs (class prediction)
     'out': tf.Variable(tf.random_normal([256, n_classes]))
 }

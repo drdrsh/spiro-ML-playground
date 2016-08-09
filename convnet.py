@@ -31,7 +31,7 @@ def conv_net(x, data_shape, weights, biases, dropout):
     
     # Max Pooling (down-sampling)
     print("Input to MaxPool1 " + str(conv1.get_shape()))
-    conv1 = maxpool3d(conv1, strides=4, k=2, name="maxpool1")
+    conv1 = maxpool3d(conv1, strides=2, k=6, name="maxpool1")
     print("Output of MaxPool1 " + str(conv1.get_shape()))
 
     
