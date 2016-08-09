@@ -23,8 +23,14 @@ class DatasetManager:
         self.datasets = {}
         self.epochs_per_ds = epochs_per_ds
         self.data_files = glob.glob(self.data_path + "data_*")
+        
+        # Put aside one dataset for testing
+        self.test_files = self.get_random_dataset_pair()
+        self.data_files.remove(self.test_files[0])
+        
         self.load_dataset(0, async=False)
         self.load_dataset(1, async=True)
+        
         self.active_dataset_index = 0
         
     def get_current_dataset(self) :
@@ -47,7 +53,7 @@ class DatasetManager:
         self.datasets[str(position)] = Dataset()
         
         # Load it, either sync or async
-        self.datasets[str(position)].load(
+        return self.datasets[str(position)].load(
             data_filename=data_filename, 
             labels_filename=labels_filename, 
             target_shape=self.target_shape, 
@@ -79,7 +85,16 @@ class DatasetManager:
         
         return ds
 
-        
+ 
+    def get_test_dataset(self): 
+        ds = Dataset()
+        return ds.load(
+            data_filename=self.test_files[0], 
+            labels_filename=self.test_files[1], 
+            target_shape=self.target_shape,
+            async=False
+        )
+
     def next_batch(self, batch_size):
         
         ds = self.datasets[str(self.active_dataset_index)]
