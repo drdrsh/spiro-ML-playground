@@ -105,6 +105,8 @@ total_files = len(images)
 
 for image_path in images:
 
+	update_cli()
+
 	# print("Processing subject {0})".format(record_id))
 	record_id = ((os.path.splitext(os.path.basename(image_path))[0]).split('_'))[0]
 	labels = labels_table[record_id]
@@ -113,11 +115,13 @@ for image_path in images:
 		image = sitk.ReadImage(image_path)
 	except(RuntimeError):
 		# print("Invalid image {0}".format(image_path))
+		files_done += 1
 		continue
 
 	arr = pad_image(image, out_dim)
 	if arr is None:
 		# print("Discarding subject {0}".format(record_id))
+		files_done += 1
 		continue
 
 	# print("Array size = {0} bytes".format(arr.nbytes))
@@ -140,7 +144,6 @@ for image_path in images:
 	Y.append(cls)
 
 	files_done += 1
-	update_cli()
 
 # print("Writing last batch")
 write_batch(X, Y, batch_number, np_path)
