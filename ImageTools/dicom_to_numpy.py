@@ -57,7 +57,7 @@ def pad_image(image, target_dim):
 	return np.int16(x)
 
 
-shrink_factor = 7
+shrink_factor = 10
 root_path     = "/home/mostafa/SummerProject/Data/"
 labels_path   = root_path + "labels.csv"
 images_path   = root_path + "/augmented/" + str(shrink_factor) + "/"
@@ -88,7 +88,12 @@ for image_path in images:
 	record_id = ((os.path.splitext(os.path.basename(image_path))[0]).split('_'))[0]
 	labels = labels_table[record_id]
 
-	image = sitk.ReadImage(image_path)
+	try:
+		image = sitk.ReadImage(image_path)
+	except(RuntimeError):
+		print("Invalid image {0}".format(image_path))
+		continue
+
 	arr = pad_image(image, out_dim)
 	if arr is None:
 		print("Discarding subject {0}".format(record_id))
