@@ -128,7 +128,7 @@ class DatasetLoader(threading.Thread):
             for i in range(len(self.target_shape)):
                 
                 padding_size = self.target_shape[i] - X.shape[i + 1]
-                assert padding_size > 0
+                assert padding_size >= 0
                 
                 # If padding size is even then we just put half padding on each side
                 # If padding size is odd we add the smaller number before and the larger after

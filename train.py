@@ -8,7 +8,6 @@ data_manager = Dataset.DatasetManager('./Data/np/10/', target_shape=(64, 64, 64)
 
 ds = data_manager.get_current_dataset()
 
-
 # Network Parameters
 data_shape = [ds.original_X_shape[1], ds.original_X_shape[2], ds.original_X_shape[3]]
 n_input = ds.original_X_shape[1] * ds.original_X_shape[2] * ds.original_X_shape[3]   # Input size
@@ -18,7 +17,7 @@ dropout = 0.75    # Dropout, probability to keep units
 # Parameters
 learning_rate = 0.001
 training_iters = 200000
-batch_size = 3
+batch_size = 30
 display_step = 10
 
 # tf Graph input
@@ -54,8 +53,8 @@ weights = {
     # Output volume 15x15x15x12 (Filter number remains the same after maxpooling)
 
     
-    # fully connected, 7*7*48 inputs, 256 outputs
-    'wd1': tf.Variable(tf.random_normal([15*15*15*12, 256])),
+    # fully connected, 8*8*12 inputs, 256 outputs
+    'wd1': tf.Variable(tf.random_normal([8*8*8*12, 256])),
     # 256 inputs, 2 outputs (class prediction)
     'out': tf.Variable(tf.random_normal([256, n_classes]))
 }
