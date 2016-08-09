@@ -25,10 +25,10 @@ class DatasetManager:
         self.data_files = glob.glob(self.data_path + "data_*")
         self.load_dataset(0, async=False)
         self.load_dataset(1, async=True)
-        self.active_dataset = 0
+        self.active_dataset_index = 0
         
     def get_current_dataset(self) :
-        return self.datasets[str(self.active_dataset)]
+        return self.datasets[str(self.active_dataset_index)]
         
     def get_random_dataset_pair(self): 
         
@@ -57,20 +57,21 @@ class DatasetManager:
     def next_dataset(self):
         
         # Unload old dataset
-        unloaded_ds_index = self.active_dataset
-        print('Discarding dataset ' + str(unloaded_ds_index))
+        unloaded_ds_index = self.active_dataset_index
+
+        print('Discarding dataset ' + self.datasets[str(unloaded_ds_index)].filename)
         del self.datasets[str(unloaded_ds_index)]
 
-        # Load a newer set in its place Asynchornusly
-        self.load_dataset(unloaded_ds_index, async=True)
         
         # Shift the current dataset pointer to another dataset that was loaded previously
+        self.active_dataset_index += 1
+        if self.active_dataset_index > (self.number_of_datasets - 1):
+            self.active_dataset_index = 0
+        ds = self.datasets[str(self.active_dataset_index)]
+        print('Switched to dataset ' + ds.filename)
         
-        self.active_dataset += 1
-        if self.active_dataset > (self.number_of_datasets - 1):
-            self.active_dataset = 0
-        
-        ds = self.datasets[str(self.active_dataset)]
+        # Load a newer set in its place Asynchornusly
+        self.load_dataset(unloaded_ds_index, async=True)
         
         if ds.state is not DatasetState.Loaded:
             assert self.state is DatasetState.Loading
@@ -81,7 +82,7 @@ class DatasetManager:
         
     def next_batch(self, batch_size):
         
-        ds = self.datasets[str(self.active_dataset)]
+        ds = self.datasets[str(self.active_dataset_index)]
         if ds._epochs_completed > self.epochs_per_ds:
             ds = self.next_dataset()
         return ds.next_batch(batch_size)
@@ -139,6 +140,7 @@ class Dataset:
         self._index_in_epoch = 0
         self._epochs_completed = 0
         self.loader = None
+        self.filename = None
     
     def onDatasetLoaded(self, loader):
         
@@ -167,8 +169,10 @@ class Dataset:
                         data_filename=data_filename, 
                         labels_filename=labels_filename, 
                         target_shape=target_shape)
-        print('Loading dataset ' + self.loader.data_filename)
         
+        
+        print('Loading dataset ' + self.loader.data_filename + (' (async) ' if async else ' (sync) '))
+        self.filename = data_filename
         self.loader.start()
         if async is False:
             self.loader.join()
