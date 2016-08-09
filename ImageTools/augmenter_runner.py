@@ -38,7 +38,7 @@ for x in os.walk(sys.argv[1]):
     for file in x[2]:
         full_input_path = os.path.abspath(sys.argv[1] + '/' + file)
         full_output_path = os.path.abspath(sys.argv[2] + '/')
-        print("Processing " + full_input_path )
+        print("Processing "+ full_input_path )
         if len(processes) < max_process:
             p = subprocess.Popen(['./ImageAugment', '--input', full_input_path, '--output', full_output_path])
             processes.append(p)

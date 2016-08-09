@@ -58,6 +58,9 @@ typedef   PointSetType::PointIdentifier                    PointIdType;
 typedef std::vector<int> IntVector;
 typedef std::vector<std::thread> ThreadVector;
 
+bool file_exists(std::string filename) {
+    return boost::filesystem::exists(filename) && boost::filesystem::file_size(filename) != 0;
+}
 
 void save_image(ImageType::Pointer image, std::string outputFilename) {
 	WriterType::Pointer writer = WriterType::New();
@@ -82,6 +85,11 @@ ResampleImageFilterType::Pointer get_default_resampler(ImageType::Pointer inputI
 }
 
 void deform_rotate(ImageType::Pointer inputImage, std::string outputFilename) {
+
+    if(file_exists(outputFilename)) {
+        std::cout << std::endl <<  outputFilename << " already exists, exiting " <<  std::endl;
+        return;
+    }
 
 	float degRange = 5.0f;
 	boost::random::mt19937 rng;
@@ -131,7 +139,14 @@ void deform_rotate(ImageType::Pointer inputImage, std::string outputFilename) {
 }
 
 void deform_noise(ImageType::Pointer inputImage, std::string outputFilename) {
-	float std = 100.0f;
+
+    if(file_exists(outputFilename)) {
+        std::cout << std::endl <<  outputFilename << " already exists, exiting " <<  std::endl;
+        return;
+    }
+
+
+    float std = 100.0f;
 	NoiseFilterType::Pointer filter = NoiseFilterType::New();
 
 	filter->SetStandardDeviation(std);
@@ -145,7 +160,12 @@ void deform_histogram(ImageType::Pointer inputImage, std::string outputFilename)
 
 void deform_tps(ImageType::Pointer inputImage, std::string outputFilename) {
 
-	float deform_factor = 0.01f;
+    if(file_exists(outputFilename)) {
+        std::cout << std::endl <<  outputFilename << " already exists, exiting " <<  std::endl;
+        return;
+    }
+
+    float deform_factor = 0.01f;
 	unsigned int deform_landmarks = 200;
 
 	boost::random::mt19937 rng;
