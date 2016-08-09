@@ -2,13 +2,31 @@ import SimpleITK as sitk
 import numpy as np
 import csv, os, glob, sys
 
+total_files = 0
+files_done = 0
+batches_written = 0
+
+def update_cli():
+	global total_files, files_done
+	sys.stdout.write(
+		'Converting image to numpy array, {0} out of {1} files processed ({3} batches written) ({2:.2f}%)\r'
+			.format(
+				files_done,
+				total_files,
+				(files_done/total_files) * 100 ,
+				batches_written
+			)
+	)
+	sys.stdout.flush()
+
+
 def write_batch(X, Y, batch_number, np_path):
 	filename = "data_{0}".format(batch_number)
-	print("Writing file " + filename)
+	# print("Writing file " + filename)
 	np.save(np_path + filename, np.array(X))
 
 	filename = "labels_{0}".format(batch_number)
-	print("Writing file " + filename)
+	# print("Writing file " + filename)
 	np.save(np_path + filename, np.array(Y))
 
 def get_label_dict(labels_file):
@@ -82,6 +100,9 @@ Y = []
 
 images = glob.glob(images_path + "*.nrrd")
 
+total_files = len(images)
+
+
 for image_path in images:
 
 	# print("Processing subject {0})".format(record_id))
@@ -91,24 +112,25 @@ for image_path in images:
 	try:
 		image = sitk.ReadImage(image_path)
 	except(RuntimeError):
-		print("Invalid image {0}".format(image_path))
+		# print("Invalid image {0}".format(image_path))
 		continue
 
 	arr = pad_image(image, out_dim)
 	if arr is None:
-		print("Discarding subject {0}".format(record_id))
+		# print("Discarding subject {0}".format(record_id))
 		continue
 
 	# print("Array size = {0} bytes".format(arr.nbytes))
 
 	if cum_batch_size + arr.nbytes > batch_max_size:
 
-		print("Batch size reached, starting a new batch")
+		# print("Batch size reached, starting a new batch")
 		write_batch(X, Y, batch_number, np_path)
 		X = []
 		Y = []
 		cum_batch_size = 0
 		batch_number += 1
+		batches_written += 1
 
 	cum_batch_size += arr.nbytes
 
@@ -117,5 +139,11 @@ for image_path in images:
 	X.append(arr)
 	Y.append(cls)
 
-print("Writing last batch")
+	files_done += 1
+	update_cli()
+
+# print("Writing last batch")
 write_batch(X, Y, batch_number, np_path)
+batches_written += 1
+update_cli()
+print("Done!")
