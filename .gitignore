@@ -1,5 +1,9 @@
 Data/
+DataTest/
+logs/
+__pycache__/
 ImageTools/bin/
 .ipynb_checkpoints/
 ImageTools/.idea/
 *.pyc
+models/
