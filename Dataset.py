@@ -12,22 +12,21 @@ class DatasetState(Enum):
 class DatasetManager:
     
     def __init__(self,
-                 data_path="", 
+                 train="",
+                 test ="", 
                  epochs_per_ds=5,
                  target_shape=None):
         
         
-        self.data_path = data_path
+        self.data_path = train
+        self.test_path = test
         self.target_shape = target_shape
         self.number_of_datasets = 2
         self.datasets = {}
         self.epochs_per_ds = epochs_per_ds
         self.data_files = glob.glob(self.data_path + "data_*")
-        
-        # Put aside one dataset for testing
-        self.test_files = self.get_random_dataset_pair()
-        self.data_files.remove(self.test_files[0])
-        
+        self.test_files = glob.glob(self.test_path + "data_*")
+        print(self.test_files)
         self.load_dataset(0, async=False)
         self.load_dataset(1, async=True)
         
@@ -36,18 +35,23 @@ class DatasetManager:
     def get_current_dataset(self) :
         return self.datasets[str(self.active_dataset_index)]
         
-    def get_random_dataset_pair(self): 
+    def get_random_dataset_pair(self, type='train'): 
         
-        data_filename = random.choice(self.data_files)
+        assert type=='train' or type=='test'
+        
+        filenames = self.data_files if type=='train' else self.test_files
+        path      = self.data_path  if type=='train' else self.test_path
+        
+        data_filename = random.choice(filenames)
         file_id = ((os.path.splitext(os.path.basename(data_filename))[0]).split('_'))[1]
-        labels_filename = self.data_path + 'labels_' + file_id + '.npy'
+        labels_filename = path + 'labels_' + file_id + '.npy'
         
         return (data_filename, labels_filename)
     
     def load_dataset(self, position, async=False):
         
         # Grab a random patch of data
-        (data_filename, labels_filename) = self.get_random_dataset_pair()
+        (data_filename, labels_filename) = self.get_random_dataset_pair('train')
         
         # Create a new dataset
         self.datasets[str(position)] = Dataset()
@@ -86,11 +90,12 @@ class DatasetManager:
         return ds
 
  
-    def get_test_dataset(self): 
+    def get_test_dataset(self):
         ds = Dataset()
+        data_filename, labels_filename = self.get_random_dataset_pair('test')
         return ds.load(
-            data_filename=self.test_files[0], 
-            labels_filename=self.test_files[1], 
+            data_filename=data_filename, 
+            labels_filename=labels_filename, 
             target_shape=self.target_shape,
             async=False
         )

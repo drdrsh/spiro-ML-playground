@@ -2,9 +2,18 @@ import tensorflow as tf
 import numpy as np
 import Dataset
 from convnet import *
+import datetime
 
-sess = None
-data_manager = Dataset.DatasetManager('./Data/np/10/', target_shape=(64, 64, 64))
+
+data_manager = Dataset.DatasetManager(
+    train='./Data/np/10_trial/',
+    test ='./DataTest/np/10/', 
+    target_shape=(64, 64, 64)
+)
+
+tf.reset_default_graph()
+
+sess = tf.Session()
 
 ds = data_manager.get_current_dataset()
 
@@ -16,16 +25,20 @@ dropout = 0.75    # Dropout, probability to keep units
 
 # Parameters
 learning_rate = 0.001
-training_iters = 200000
-batch_size = 30
+training_iters = 400000
+batch_size = 25
 display_step = 10
 
 # tf Graph input
 x = tf.placeholder(tf.float32, [None, n_input])
 y = tf.placeholder(tf.float32, [None, n_classes])
-keep_prob = tf.placeholder(tf.float32) #dropout (keep probability)
 
 
+with tf.name_scope('dropout'):
+    keep_prob = tf.placeholder(tf.float32) #dropout (keep probability)
+    tf.scalar_summary('dropout_keep_probability', keep_prob)
+    
+    
 # Number of neurons = Output Volume Size 
 # Number of biases = 1 Per neuron
 # Number of Bias terms = Number of Filters 
@@ -71,50 +84,83 @@ biases = {
 pred = conv_net(x, data_shape, weights, biases, keep_prob)
 
 # Define loss and optimizer
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y))
+with tf.name_scope('cross_entropy'):
+    with tf.name_scope('total'):
+        cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y))
+        tf.scalar_summary('cost', cost)
+
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
 # Evaluate model
 correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1))
-accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+with tf.name_scope('accuracy'):
+    accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+    tf.scalar_summary('accuracy', accuracy)
 
 # Initializing the variables
+merged = tf.merge_all_summaries()
+
+str_now = datetime.datetime.now().strftime("%d-%m-%Y#%H_%M_%S")
+
+train_writer = tf.train.SummaryWriter('logs/train/' + str_now, sess.graph)
+test_writer  = tf.train.SummaryWriter('logs/test/'  + str_now, sess.graph)
+
 init = tf.initialize_all_variables()
-
-if sess:
-    sess.close()
-    
-sess = tf.Session()
-
-
-# Launch the graph
-with sess:
-    sess.run(init)
-    step = 1
-    # Keep training until reach max iterations
-    while step * batch_size < training_iters:
-        batch_x, batch_y = data_manager.next_batch(batch_size)
-        
-        # Run optimization op (backprop)
-        sess.run(optimizer, feed_dict={x: batch_x, y: batch_y, keep_prob: dropout})
-        
-        if step % display_step == 0:
-            # Calculate batch loss and accuracy
-            loss, acc = sess.run([cost, accuracy], feed_dict={x: batch_x,
-                                                              y: batch_y,
-                                                              keep_prob: 1.})
-            print( "Iter " + str(step*batch_size) + ", Minibatch Loss= " + \
-                  "{:.6f}".format(loss) + ", Training Accuracy= " + \
-                  "{:.5f}".format(acc))
-        step += 1
-    print("Optimization Finished!")
+sess.run(init)
 
 # Load test dataset
 test_dataset = data_manager.get_test_dataset()
 
 
-# Get a batch of training examples
-test_batch_x, test_batch_y = test_dataset.next_batch(5)
 
-# Run test
-print("Testing Accuracy:", sess.run(accuracy, feed_dict={x: test_batch_x, y: test_batch_y, keep_prob: 1.}))
+# Launch the graph
+step = 1
+
+with sess:
+    
+    test_batch_x, test_batch_y = test_dataset.next_batch(15)
+    test_dict = {
+        x: test_batch_x,
+        y: test_batch_y,
+        keep_prob: 1.0
+    }
+
+    
+    # Keep training until reach max iterations
+    while step * batch_size < training_iters:
+
+        batch_x, batch_y = data_manager.next_batch(batch_size)
+        train_dict = {
+            x: batch_x, 
+            y: batch_y, 
+            keep_prob: 1.0
+        }
+                        
+        # Run optimization op (backprop)
+        summary, _ = sess.run([merged, optimizer], feed_dict=train_dict)
+        train_writer.add_summary(summary, step)
+
+        if step % display_step == 0:
+            # Calculate batch loss and accuracy
+            train_acc, train_loss = sess.run([accuracy, cost], feed_dict=train_dict)
+            summary, test_acc  = sess.run([merged, accuracy], feed_dict=test_dict)
+
+            test_writer.add_summary(summary, step)
+            
+            print( "Iter " + str(step * batch_size) + 
+                ", Minibatch Loss = {:.6f}".format(train_loss) + 
+                ", Training Accuracy = {:.5f}".format(train_acc) + 
+                ", Test Accuracy = {:.5f}".format(test_acc)
+             )
+
+        step += 1
+        
+    saver = tf.train.Saver()
+    save_path = saver.save(sess, "/tmp/model.ckpt")
+    print("Model saved in file: %s" % save_path)
+
+    print("Optimization Finished!")
+
+train_writer.close()
+test_writer.close()
+
