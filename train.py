@@ -156,9 +156,7 @@ with sess:
         step += 1
         
     saver = tf.train.Saver()
-    save_path = saver.save(sess, "/tmp/model.ckpt")
-    print("Model saved in file: %s" % save_path)
-
+    save_path = saver.save(sess, "models/" + str_now + ".ckpt")
     print("Optimization Finished!")
 
 train_writer.close()
