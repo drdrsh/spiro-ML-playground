@@ -52,10 +52,11 @@ def get_label_dict(labels_file):
 def pad_image(image, target_dim):
 
 	size = image.GetSize()
-
-	if size[2] > target_dim[0] or size[1] > target_dim[1] or size[0] > target_dim[2]:
-		# If the image size is larger than the agreed upon padded size, discard it
-		return None
+	if size[2] > target_dim[0]:
+		to_trim = size[2] - target_dim[0]
+		trim_start = int(to_trim / 2)
+		trim_end   = trim_start + (to_trim % 2)
+		image = sitk.Crop(image, [0, 0, trim_start], [0, 0, trim_end] )
 
 	arr = sitk.GetArrayFromImage(image)
 
@@ -76,9 +77,9 @@ def pad_image(image, target_dim):
 
 
 shrink_factor = 10
-root_path     = "/home/mostafa/SummerProject/Data/"
+root_path     = "/home/mostafa/SummerProject/DataTest/"
 labels_path   = root_path + "labels.csv"
-images_path   = root_path + "/augmented/" + str(shrink_factor) + "/"
+images_path   = root_path + "/discrete/" + str(shrink_factor) + "/"
 np_path       = root_path + "/np/" + str(shrink_factor) + "/"
 
 
@@ -120,7 +121,7 @@ for image_path in images:
 
 	arr = pad_image(image, out_dim)
 	if arr is None:
-		# print("Discarding subject {0}".format(record_id))
+		# print("Discarding subject {0}\n".format(record_id))
 		files_done += 1
 		continue
 
