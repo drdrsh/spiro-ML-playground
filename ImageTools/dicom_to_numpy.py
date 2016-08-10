@@ -1,6 +1,6 @@
 import SimpleITK as sitk
 import numpy as np
-import csv, os, glob, sys
+import csv, os, glob, sys, random
 
 total_files = 0
 files_done = 0
@@ -53,9 +53,16 @@ def pad_image(image, target_dim):
 
 	size = image.GetSize()
 	if size[2] > target_dim[0]:
+
 		to_trim = size[2] - target_dim[0]
+		if  int( (to_trim * 100) / target_dim[0]) >= 25:
+			# Difference between image size and target size is different by more than 25%
+			# Trimming will likely destroy image data, discard the image altogether
+			return None
+
 		trim_start = int(to_trim / 2)
 		trim_end   = trim_start + (to_trim % 2)
+
 		image = sitk.Crop(image, [0, 0, trim_start], [0, 0, trim_end] )
 
 	arr = sitk.GetArrayFromImage(image)
@@ -77,10 +84,10 @@ def pad_image(image, target_dim):
 
 
 shrink_factor = 10
-root_path     = "/home/mostafa/SummerProject/DataTest/"
+root_path     = "/home/mostafa/SummerProject/Data/"
 labels_path   = root_path + "labels.csv"
-images_path   = root_path + "/discrete/" + str(shrink_factor) + "/"
-np_path       = root_path + "/np/" + str(shrink_factor) + "/"
+images_path   = root_path + "/augmented/" + str(shrink_factor) + "_trial/"
+np_path       = root_path + "/np/" + str(shrink_factor) + "_trial/"
 
 
 labels_table = get_label_dict(labels_path)
@@ -100,9 +107,9 @@ X = []
 Y = []
 
 images = glob.glob(images_path + "*.nrrd")
+random.shuffle(images)
 
 total_files = len(images)
-
 
 for image_path in images:
 
@@ -115,13 +122,13 @@ for image_path in images:
 	try:
 		image = sitk.ReadImage(image_path)
 	except(RuntimeError):
-		# print("Invalid image {0}".format(image_path))
+		#print("Invalid image {0}".format(image_path))
 		files_done += 1
 		continue
 
 	arr = pad_image(image, out_dim)
 	if arr is None:
-		# print("Discarding subject {0}\n".format(record_id))
+		#print("Discarding subject {0}\n".format(record_id))
 		files_done += 1
 		continue
 

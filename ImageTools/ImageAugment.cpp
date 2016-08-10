@@ -91,7 +91,7 @@ void deform_rotate(ImageType::Pointer inputImage, std::string outputFilename) {
         return;
     }
 
-	float degRange = 5.0f;
+	float degRange = 10.0f;
 	boost::random::mt19937 rng;
 	boost::random::uniform_int_distribution<> idd(-50, 50);
 	float angles[3] = {
@@ -166,7 +166,7 @@ void deform_tps(ImageType::Pointer inputImage, std::string outputFilename) {
     }
 
     float deform_factor = 0.01f;
-	unsigned int deform_landmarks = 200;
+	unsigned int deform_landmarks = 250;
 
 	boost::random::mt19937 rng;
 	boost::random::uniform_int_distribution<> iid(-100, 100);
