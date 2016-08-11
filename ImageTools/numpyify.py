@@ -1,6 +1,13 @@
-import SimpleITK as sitk
+#!/usr/bin/env python3
+
+# import SimpleITK as sitk
 import numpy as np
 import csv, os, glob, sys, random
+
+import APPIL_DNN.data
+from APPIL_DNN.cli import CLI
+from APPIL_DNN.config import Config
+from APPIL_DNN.process_runner import ProcessRunner
 
 total_files = 0
 files_done = 0
@@ -28,24 +35,6 @@ def write_batch(X, Y, batch_number, np_path):
 	filename = "labels_{0}".format(batch_number)
 	# print("Writing file " + filename)
 	np.save(np_path + filename, np.array(Y))
-
-def get_label_dict(labels_file):
-	result = {}
-	with open(labels_file, 'r') as csvfile:
-		csv_reader = csv.DictReader(csvfile, delimiter=',', quotechar='|')
-		for row in csv_reader:
-			record_id = row['record_id']
-			result[record_id] = {}
-			if row['emphysema'] != '':
-				result[record_id]['emphysema'] = int(row['emphysema'])
-			else:
-				result[record_id]['emphysema'] = 0
-
-			if row['bronchiectasis1'] != '':
-				result[record_id]['bronchiectasis'] = int(row['bronchiectasis1'])
-			else:
-				result[record_id]['bronchiectasis'] = 0
-	return result
 
 
 
@@ -83,33 +72,40 @@ def pad_image(image, target_dim):
 	return np.int16(x)
 
 
-shrink_factor = 10
-root_path     = "/home/mostafa/SummerProject/Data/"
-labels_path   = root_path + "labels.csv"
-images_path   = root_path + "/augmented/" + str(shrink_factor) + "_trial/"
-np_path       = root_path + "/np/" + str(shrink_factor) + "_trial/"
+current_mode = 'train'
+
+ref_dim = Config.get('reference_dimensions')
+segment_enabled = Config.get('segment_enabled')
+active_shrink_factor = Config.get('active_shrink_factor')
+batch_max_size = Config.get('batch_max_size')
 
 
-labels_table = get_label_dict(labels_path)
+input_subtype  = 'segmented_augmented' if segment_enabled  else 'augmented'
+input_path  = CLI.get_path(current_mode , input_subtype,  active_shrink_factor)
 
-ref_dim       = (630, 512, 512)
-batch_max_size= 3.5 * 1024 * 1024 * 1024 # 3.5 Gigabytes
-batch_max_size= 200 * 1024 * 1024 		 # 200 Megabytes
+output_path = CLI.get_path(current_mode , 'np', active_shrink_factor)
 
+try:
+	os.mkdir(output_path)
+except:
+	pass
 
+num_examples, num_classes, labels_table = APPIL_DNN.data.get_labels()
 
-scale_factor  = 1/shrink_factor
+scale_factor  = 1/active_shrink_factor
 out_dim = (int(ref_dim[0] * scale_factor), int(ref_dim[1] * scale_factor), int(ref_dim[2] * scale_factor))
 
-cum_batch_size = 0
-batch_number = 0
-X = []
-Y = []
 
-images = glob.glob(images_path + "*.nrrd")
+images = glob.glob(input_path + '/' + "*.nrrd")
 random.shuffle(images)
 
 total_files = len(images)
+cum_batch_size = 0
+batch_number = 0
+cls = list(0 for i in range(num_classes))
+X = []
+Y = []
+
 
 for image_path in images:
 
@@ -117,7 +113,8 @@ for image_path in images:
 
 	# print("Processing subject {0})".format(record_id))
 	record_id = ((os.path.splitext(os.path.basename(image_path))[0]).split('_'))[0]
-	labels = labels_table[record_id]
+	label = labels_table[record_id]
+	cls[label] = 1
 
 	try:
 		image = sitk.ReadImage(image_path)
@@ -137,7 +134,7 @@ for image_path in images:
 	if cum_batch_size + arr.nbytes > batch_max_size:
 
 		# print("Batch size reached, starting a new batch")
-		write_batch(X, Y, batch_number, np_path)
+		write_batch(X, Y, batch_number, output_path)
 		X = []
 		Y = []
 		cum_batch_size = 0
@@ -146,15 +143,13 @@ for image_path in images:
 
 	cum_batch_size += arr.nbytes
 
-	cls = [0, 0]
-	cls[labels['emphysema']] = 1
 	X.append(arr)
 	Y.append(cls)
 
 	files_done += 1
 
 # print("Writing last batch")
-write_batch(X, Y, batch_number, np_path)
+write_batch(X, Y, batch_number, output_path)
 batches_written += 1
 update_cli()
 print("Done!")

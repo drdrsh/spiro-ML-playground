@@ -2,11 +2,19 @@ cmake_minimum_required(VERSION 3.5)
 
 project(ImageTools)
 
-configure_file( ${CMAKE_SOURCE_DIR}/converter_runner.py  ${CMAKE_BINARY_DIR}/converter_runner.py COPYONLY)
-configure_file( ${CMAKE_SOURCE_DIR}/trimmer_runner.py    ${CMAKE_BINARY_DIR}/trimmer_runner.py   COPYONLY)
-configure_file( ${CMAKE_SOURCE_DIR}/dicom_to_numpy.py    ${CMAKE_BINARY_DIR}/dicom_to_numpy.py   COPYONLY)
-configure_file( ${CMAKE_SOURCE_DIR}/augmenter_runner.py  ${CMAKE_BINARY_DIR}/augmenter_runner.py   COPYONLY)
+configure_file( ${CMAKE_SOURCE_DIR}/convert.py  ${CMAKE_BINARY_DIR}/convert.py  COPYONLY)
+configure_file( ${CMAKE_SOURCE_DIR}/segment.py  ${CMAKE_BINARY_DIR}/segment.py  COPYONLY)
+configure_file( ${CMAKE_SOURCE_DIR}/numpyify.py ${CMAKE_BINARY_DIR}/numpyify.py COPYONLY)
+configure_file( ${CMAKE_SOURCE_DIR}/augment.py  ${CMAKE_BINARY_DIR}/augment.py  COPYONLY)
+configure_file( ${CMAKE_SOURCE_DIR}/testset.py  ${CMAKE_BINARY_DIR}/testset.py  COPYONLY)
 
+install(
+    FILES convert.py segment.py numpyify.py testset.py augment.py
+    PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+    DESTINATION ${CMAKE_BINARY_DIR}
+)
+
+file(COPY ${CMAKE_SOURCE_DIR}/APPIL_DNN DESTINATION ${CMAKE_BINARY_DIR})
 
 #set(Boost_INCLUDE_DIR C:/Libraries/boost_1_61_0/)
 #set(BOOST_LIBRARYDIR C:/Libraries/boost_1_61_0/stage/libs/x64)

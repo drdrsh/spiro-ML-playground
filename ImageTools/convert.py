@@ -1,4 +1,6 @@
-import os, sys, subprocess
+#!/usr/bin/env python3
+
+# import os, sys, subprocess
 
 if len(sys.argv) != 3:
 	print("Usage: runner.py series_directory_name output_directory_name")
