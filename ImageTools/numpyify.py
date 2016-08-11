@@ -9,12 +9,8 @@ from APPIL_DNN.cli import CLI
 from APPIL_DNN.config import Config
 from APPIL_DNN.process_runner import ProcessRunner
 
-total_files = 0
-files_done = 0
-batches_written = 0
 
-def update_cli():
-	global total_files, files_done
+def update_cli(total_files, files_done, batches_written ):
 	sys.stdout.write(
 		'Converting image to numpy array, {0} out of {1} files processed ({3} batches written) ({2:.2f}%)\r'
 			.format(
@@ -96,20 +92,25 @@ scale_factor  = 1/active_shrink_factor
 out_dim = (int(ref_dim[0] * scale_factor), int(ref_dim[1] * scale_factor), int(ref_dim[2] * scale_factor))
 
 
+print('Output image size is ' + str(out_dim))
 images = glob.glob(input_path + '/' + "*.nrrd")
 random.shuffle(images)
 
+files_done = 0
+batches_written = 0
 total_files = len(images)
+
 cum_batch_size = 0
 batch_number = 0
 cls = list(0 for i in range(num_classes))
 X = []
 Y = []
 
+assert len(images) != 0
 
 for image_path in images:
 
-	update_cli()
+	update_cli(total_files, files_done, batches_written)
 
 	# print("Processing subject {0})".format(record_id))
 	record_id = ((os.path.splitext(os.path.basename(image_path))[0]).split('_'))[0]
@@ -151,5 +152,5 @@ for image_path in images:
 # print("Writing last batch")
 write_batch(X, Y, batch_number, output_path)
 batches_written += 1
-update_cli()
+update_cli(total_files, files_done, batches_written)
 print("Done!")
