@@ -1,21 +1,36 @@
 import numpy as np
-import os, sys, subprocess, time, glob, csv
-
+import os, sys, subprocess, time, glob, csv, json
 
 class Config:
 
-	@staticmethod
-	def get(key):
-		config = {
-			'bin_root'	   : '/home/mostafa/SummerProject/ImageTools/bin/',
-			'data_root'    : '/home/mostafa/SummerProject/Data/',
-			'test_set_size': 24,
-			'max_process'  : 8,
-			'segment_enabled': True,
-			'min_augment_count': 50,
-			'max_augment_count': 100,
-			'active_shrink_factor': 5,
-			'reference_dimensions': (630, 512, 512),
-			'batch_max_size': 200 * 1024 * 1024
-		}
-		return config[key]
+	instance = None
+
+	class __Config:
+		def __init__(self, filename=None):
+			try:
+				if filename is None:
+					filename = './config.json'
+				with open(filename) as data_file:
+					self.config = json.load(data_file)
+			except:
+				pass
+
+		def get(self, key):
+			return self.config[key]
+
+
+	def load(filename):
+		config = Config.get_instance()
+		with open(filename) as data_file:
+			config.config = json.load(data_file)
+		return config
+
+
+	def get_instance():
+		if Config.instance is None:
+			Config.instance = Config.__Config()
+		return Config.instance
+
+	def get(k):
+		config = Config.get_instance()
+		return config.get(k)

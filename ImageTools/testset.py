@@ -8,6 +8,10 @@ from APPIL_DNN.cli import CLI
 from APPIL_DNN.config import Config
 from APPIL_DNN.process_runner import ProcessRunner
 
+
+if len(sys.argv) > 1:
+    Config.load(sys.argv[1])
+
 active_shrink_factor = Config.get('active_shrink_factor')
 test_set_size = Config.get('test_set_size')
 num_examples, num_classes, labels_table = APPIL_DNN.data.get_labels()

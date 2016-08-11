@@ -68,7 +68,13 @@ def pad_image(image, target_dim):
 	return np.int16(x)
 
 
+if len(sys.argv) > 1:
+	Config.load(sys.argv[1])
+
 current_mode = 'train'
+if len(sys.argv) > 2:
+	current_mode = argv[2]
+
 
 ref_dim = Config.get('reference_dimensions')
 segment_enabled = Config.get('segment_enabled')

@@ -1,0 +1,12 @@
+{
+	"bin_root"	: "",
+	"data_root"    : "",
+	"test_set_size": 12,
+	"max_process"  : 8,
+	"segment_enabled": true,
+	"min_augment_count": 50,
+	"max_augment_count": 100,
+	"active_shrink_factor": 7,
+	"reference_dimensions": [630, 512, 512],
+	"batch_max_size": 209715200
+}

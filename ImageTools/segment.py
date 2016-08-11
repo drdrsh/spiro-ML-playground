@@ -6,6 +6,8 @@ from APPIL_DNN.cli import CLI
 from APPIL_DNN.config import Config
 from APPIL_DNN.process_runner import ProcessRunner
 
+if len(sys.argv) > 1:
+	Config.load(sys.argv[1])
 
 segment_enabled = Config.get('segment_enabled')
 active_shrink_factor = Config.get('active_shrink_factor')

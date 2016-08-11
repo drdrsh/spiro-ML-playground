@@ -8,6 +8,8 @@ from APPIL_DNN.cli import CLI
 from APPIL_DNN.config import Config
 from APPIL_DNN.process_runner import ProcessRunner
 
+if len(sys.argv) > 1:
+    Config.load(sys.argv[1])
 
 min_count = Config.get('min_augment_count')
 max_count = Config.get('max_augment_count')
