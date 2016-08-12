@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# import SimpleITK as sitk
+import SimpleITK as sitk
 import numpy as np
 import csv, os, glob, sys, random
 
