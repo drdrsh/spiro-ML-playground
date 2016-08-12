@@ -110,6 +110,8 @@ int main(int argc, char* argv[]) {
         const std::string outputDirName = vm["output"].as<std::string>();
         const UIntVector shrinkFactors = vm["factors"].as<UIntVector>();
 
+        boost::filesystem::path filenameParts(dicomDirName);
+        std::string basename = filenameParts.leaf().generic_string();
 
         NamesGeneratorType::Pointer nameGenerator = NamesGeneratorType::New();
 
@@ -160,15 +162,14 @@ int main(int argc, char* argv[]) {
 			reader->Update();
 
 			ThreadVector threads;
-			for (UIntVector::iterator it = shrinkFactors.begin(); it != shrinkFactors.end(); ++it) {
+			for (UIntVector::const_iterator it = shrinkFactors.begin(); it != shrinkFactors.end(); ++it) {
 				std::stringstream ssd;
 				ssd << outputDirName << "/" << *it << "/";
 
                 boost::filesystem::path dir(ssd.str());
                 boost::filesystem::create_directory(dir);
 
-                boost::filesystem::path filenameParts(dicomDirName);
-                std::string basename = filenameParts.stem().generic_string();
+
 
 				std::stringstream ssf;
 				ssf << outputDirName << "/" << *it << "/" << basename << ".nrrd";
