@@ -8,7 +8,8 @@ import datetime
 data_manager = Dataset.DatasetManager(
     train='./Data/np/10_trial/',
     test ='./DataTest/np/10/', 
-    target_shape=(64, 64, 64)
+    target_shape=(64, 64, 64),
+    epochs_per_ds=1
 )
 
 tf.reset_default_graph()
@@ -87,6 +88,8 @@ pred = conv_net(x, data_shape, weights, biases, keep_prob)
 with tf.name_scope('cross_entropy'):
     with tf.name_scope('total'):
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y))
+        regularizers = (tf.nn.l2_loss(weights['wd1']) + tf.nn.l2_loss(biases['bd1']))
+        cost += 5e-4 * regularizers
         tf.scalar_summary('cost', cost)
 
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
@@ -133,7 +136,7 @@ with sess:
         train_dict = {
             x: batch_x, 
             y: batch_y, 
-            keep_prob: 1.0
+            keep_prob: 0.75
         }
                         
         # Run optimization op (backprop)
