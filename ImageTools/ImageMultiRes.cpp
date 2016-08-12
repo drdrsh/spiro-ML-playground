@@ -30,8 +30,21 @@ typedef itk::ShrinkImageFilter< ImageType, ImageType> FilterType;
 typedef itk::ImageSeriesReader< ImageType >        ReaderType;
 typedef itk::GDCMSeriesFileNames NamesGeneratorType;
 
-typedef std::vector<int> IntVector;
+typedef std::vector<unsigned int> UIntVector;
 typedef std::vector<std::thread> ThreadVector;
+
+
+#include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int_distribution.hpp>
+
+bool file_exists(std::string filename) {
+    return boost::filesystem::exists(filename) && boost::filesystem::file_size(filename) != 0;
+}
+
+
 
 void shrinkAndWriteImage(int factor, ReaderType::Pointer input, std::string outputFilename) {
 	FilterType::Pointer filter = FilterType::New();
@@ -55,63 +68,80 @@ void shrinkAndWriteImage(int factor, ReaderType::Pointer input, std::string outp
 	}
 }
 
-int main(int argc, char* argv[])
-{
-	IntVector shrinkFactors;
-	
-	shrinkFactors.push_back(2);
-	shrinkFactors.push_back(3);
-	shrinkFactors.push_back(5);
-	shrinkFactors.push_back(7);
+int main(int argc, char* argv[]) {
 
-	if (argc < 4)
-    {
-        std::cerr << "Usage: " << std::endl;
-		std::cerr << argv[0] << " DicomDirectory OutputDirectory Basename" << std::endl;
-		return EXIT_FAILURE;
-    }
+    try {
 
-    NamesGeneratorType::Pointer nameGenerator = NamesGeneratorType::New();
+	    namespace po = boost::program_options;
+		boost::program_options::options_description desc{ "Options" };
+		desc.add_options()
+			("help,h", "Help screen")
+			("dicom,d", po::value<std::string>()->default_value(""), "DICOM directory.")
+            ("output,o", po::value<std::string>()->default_value(""), "Output directory.")
+            ("factors,f", po::value<UIntVector>()->multitoken(), "Shrink factors");
 
-	std::string dicomDirName = argv[1];
-	std::string outputDirName= argv[2];
-	std::string basename = argv[3];
+		boost::program_options::variables_map vm;
+		boost::program_options::store(po::parse_command_line(argc, argv, desc), vm);
+		boost::program_options::notify(vm);
 
-	nameGenerator->SetUseSeriesDetails(true);
-    nameGenerator->AddSeriesRestriction("0008|0021");
-    nameGenerator->SetGlobalWarningDisplay(false);
-    nameGenerator->SetDirectory(dicomDirName);
+		if (vm.count("help")) {
+			std::cout << desc << '\n';
+			return EXIT_SUCCESS;
+		}
+
+		if (!vm.count("dicom")) {
+			std::cerr << "DICOM directory not specified" << std::endl;
+			return EXIT_FAILURE;
+		}
+
+        if (!vm.count("output")) {
+            std::cerr << "No output directory was specified" << std::endl;
+            return EXIT_FAILURE;
+        }
+
+        if(!vm.count("factors")) {
+            std::cerr << "At least one shrink factor has to be specified" << std::endl;
+            return EXIT_FAILURE;
+        }
 
 
-    try
-    {
+
+        const std::string dicomDirName = vm["dicom"].as<std::string>();
+        const std::string outputDirName = vm["output"].as<std::string>();
+        const UIntVector shrinkFactors = vm["factors"].as<UIntVector>();
+
+
+        NamesGeneratorType::Pointer nameGenerator = NamesGeneratorType::New();
+
+        nameGenerator->SetUseSeriesDetails(true);
+        nameGenerator->AddSeriesRestriction("0008|0021");
+        nameGenerator->SetGlobalWarningDisplay(false);
+        nameGenerator->SetDirectory(dicomDirName);
+
+
+
         typedef std::vector< std::string >    SeriesIdContainer;
         const SeriesIdContainer & seriesUID = nameGenerator->GetSeriesUIDs();
         SeriesIdContainer::const_iterator seriesItr = seriesUID.begin();
         SeriesIdContainer::const_iterator seriesEnd = seriesUID.end();
 
-        if (seriesItr != seriesEnd)
-        {
+        if (seriesItr != seriesEnd)  {
             std::cout << "The directory: ";
             std::cout << dicomDirName << std::endl;
             std::cout << "Contains the following DICOM Series: ";
             std::cout << std::endl;
-        }
-        else
-        {
+        }  else  {
             std::cout << "No DICOMs in: " << dicomDirName << std::endl;
             return EXIT_SUCCESS;
         }
 
-        while (seriesItr != seriesEnd)
-        {
+        while (seriesItr != seriesEnd) {
             std::cout << seriesItr->c_str() << std::endl;
             ++seriesItr;
         }
 
         seriesItr = seriesUID.begin();
-        while (seriesItr != seriesUID.end())
-        {
+        while (seriesItr != seriesUID.end()) {
             std::string seriesIdentifier;
             seriesIdentifier = seriesItr->c_str();
             seriesItr++;
@@ -130,14 +160,16 @@ int main(int argc, char* argv[])
 			reader->Update();
 
 			ThreadVector threads;
-			for (IntVector::iterator it = shrinkFactors.begin(); it != shrinkFactors.end(); ++it) {
+			for (UIntVector::iterator it = shrinkFactors.begin(); it != shrinkFactors.end(); ++it) {
 				std::stringstream ssd;
 				ssd << outputDirName << "/" << *it << "/";
-#ifdef _WIN32
-				mkdir(ssd.str().c_str());
-#elif defined __linux__
-                mkdir(ssd.str().c_str(), 0755 );
-#endif
+
+                boost::filesystem::path dir(ssd.str());
+                boost::filesystem::create_directory(dir);
+
+                boost::filesystem::path filenameParts(dicomDirName);
+                std::string basename = filenameParts.stem().generic_string();
+
 				std::stringstream ssf;
 				ssf << outputDirName << "/" << *it << "/" << basename << ".nrrd";
 				threads.push_back(std::thread(shrinkAndWriteImage, *it, reader, ssf.str()));
