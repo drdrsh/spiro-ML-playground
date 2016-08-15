@@ -34,7 +34,7 @@ for file in input_files:
 	full_input_path  = os.path.abspath(input_path  + '/' + basename)
 	full_output_path = os.path.abspath(output_path + '/' + basename)
 
-	exe_path = Config.get('bin_root') + '/LungSegment'
+	exe_path = os.path.abspath(Config.get('bin_root') + '/LungSegment')
 
 	runner.enqueue(1, [exe_path , full_input_path, full_output_path])
 
