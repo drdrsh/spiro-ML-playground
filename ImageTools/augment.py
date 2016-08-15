@@ -17,16 +17,17 @@ max_count = Config.get('max_augment_count')
 segment_enabled = Config.get('segment_enabled')
 active_shrink_factor = Config.get('active_shrink_factor')
 
-input_subtype  = 'segmented' if segment_enabled  else 'discrete'
+input_subtype  = 'segmented' if segment_enabled  else 'raw'
 input_path  = CLI.get_path('train', input_subtype,  active_shrink_factor)
 
-output_subtype = 'segmented_augmented' if segment_enabled  else 'augmented'
+output_subtype = 'segmented_augmented' if segment_enabled  else 'raw_augmented'
 output_path = CLI.get_path('train', output_subtype, active_shrink_factor)
 
 try:
-    os.mkdir(output_path)
-except:
+    os.makedirs(output_path)
+except FileExistsError:
     pass
+
 
 num_examples, num_classes, labels_table = APPIL_DNN.data.get_labels()
 

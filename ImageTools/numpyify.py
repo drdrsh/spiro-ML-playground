@@ -26,11 +26,11 @@ def update_cli(total_files, files_done, batches_written ):
 def write_batch(X, Y, batch_number, np_path):
 	filename = "data_{0}".format(batch_number)
 	# print("Writing file " + filename)
-	np.save(np_path + filename, np.array(X))
+	np.save(np_path + '/' + filename, np.array(X))
 
 	filename = "labels_{0}".format(batch_number)
 	# print("Writing file " + filename)
-	np.save(np_path + filename, np.array(Y))
+	np.save(np_path + '/' + filename, np.array(Y))
 
 
 
@@ -82,15 +82,16 @@ active_shrink_factor = Config.get('active_shrink_factor')
 batch_max_size = Config.get('batch_max_size')
 
 
-input_subtype  = 'segmented_augmented' if segment_enabled  else 'augmented'
+input_subtype  = 'segmented_augmented' if segment_enabled  else 'raw_augmented'
 input_path  = CLI.get_path(current_mode , input_subtype,  active_shrink_factor)
 
-output_path = CLI.get_path(current_mode , 'np', active_shrink_factor)
+output_path = CLI.get_path(current_mode , input_subtype + '_np', active_shrink_factor)
 
 try:
-	os.mkdir(output_path)
-except:
+	os.makedirs(output_path)
+except FileExistsError:
 	pass
+
 
 num_examples, num_classes, labels_table = APPIL_DNN.data.get_labels()
 
@@ -98,7 +99,7 @@ scale_factor  = 1/active_shrink_factor
 out_dim = (int(ref_dim[0] * scale_factor), int(ref_dim[1] * scale_factor), int(ref_dim[2] * scale_factor))
 
 
-print('Output image size is ' + str(out_dim))
+print('\nOutput image size is ' + str(out_dim) + '\n')
 images = glob.glob(input_path + '/' + "*.nrrd")
 random.shuffle(images)
 
@@ -159,4 +160,4 @@ for image_path in images:
 write_batch(X, Y, batch_number, output_path)
 batches_written += 1
 update_cli(total_files, files_done, batches_written)
-print("Done!")
+print("\nDone!\n")
