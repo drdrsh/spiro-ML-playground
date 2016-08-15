@@ -165,12 +165,13 @@ void deform_tps(ImageType::Pointer inputImage, std::string outputFilename) {
         return;
     }
 
-    float deform_factor = 0.01f;
-	unsigned int deform_landmarks = 250;
-
 	boost::random::mt19937 rng;
 	boost::random::uniform_int_distribution<> iid(-100, 100);
+	
+	float deform_factor = 0.01f * (iid(rng) / 100)
+	unsigned int deform_landmarks = 500;
 
+	
 
 	PointSetType::Pointer sourceLandMarks = PointSetType::New();
 	PointSetType::Pointer targetLandMarks = PointSetType::New();
