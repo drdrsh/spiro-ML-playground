@@ -101,7 +101,7 @@ class DatasetManager:
         self.load_dataset(unloaded_ds_index, async=True)
         
         if ds.state is not DatasetState.Loaded:
-            assert self.state is DatasetState.Loading
+            assert ds.state is DatasetState.Loading
             ds.loader.join()
         
         return ds
@@ -147,15 +147,15 @@ class DatasetLoader(threading.Thread):
         X = np.load(self.data_filename)
         Y = np.load(self.labels_filename)
         
-        
         if self.target_shape is not None:
             padding_map = [[0, 0]]
             for i in range(len(self.target_shape)):
                 
+
                 padding_size = self.target_shape[i] - X.shape[i + 1]
                 
-                if padding_size >= 0 :
-                    raise("Padding size >= 0 " + str(X.shape) + " -> " + str(self.target_shape))
+                if padding_size < 0 :
+                    raise ValueError("Padding size < 0 " + str(X.shape) + " -> " + str(self.target_shape))
                 
                 # If padding size is even then we just put half padding on each side
                 # If padding size is odd we add the smaller number before and the larger after
@@ -201,7 +201,7 @@ class Dataset:
         self.X.shape = (self.X.shape[0], -1)
         self._num_examples = self.X.shape[0]
         self.state = DatasetState.Loaded
-        print('Loaded dataset ' + loader.data_filename)
+        print('Loaded dataset ' + loader.data_filename + ' of the shape ' + print(self.X.shape))
 
     def load_fake_data(self, target_shape):
         
