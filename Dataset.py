@@ -201,7 +201,7 @@ class Dataset:
         self.X.shape = (self.X.shape[0], -1)
         self._num_examples = self.X.shape[0]
         self.state = DatasetState.Loaded
-        print('Loaded dataset ' + loader.data_filename + ' of the shape ' + print(self.X.shape))
+        print('Loaded dataset ' + loader.data_filename + ' of the shape ' + str(self.X.shape))
 
     def load_fake_data(self, target_shape):
         

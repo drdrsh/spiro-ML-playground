@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import tensorflow as tf
 import numpy as np
 import Dataset
@@ -5,12 +7,14 @@ from convnet import *
 import datetime
 
 
+
+root_dataset_path = '/home/mostafa/BigSpiroData/'
 data_manager = Dataset.DatasetManager(
-    train='./Data/np/10_trial/',
-    test ='./DataTest/np/10/', 
-    target_shape=(64, 64, 64),
-    epochs_per_ds=1
+    train= root_dataset_path + 'train/raw_augmented_np/6/',
+    test = root_dataset_path + 'test/raw_np/6/', 
+    target_shape=(85, 85, 85)
 )
+
 
 tf.reset_default_graph()
 
@@ -27,7 +31,7 @@ dropout = 0.75    # Dropout, probability to keep units
 # Parameters
 learning_rate = 0.001
 training_iters = 400000
-batch_size = 25
+batch_size = 6
 display_step = 10
 
 # tf Graph input
@@ -45,38 +49,40 @@ with tf.name_scope('dropout'):
 # Number of Bias terms = Number of Filters 
 # Number of weights = FilterWidth*Fitlerheight*FiltherDepth*InputColors
 # Output Volume Size = (FilterWidth * padding * padding )
-
 # Store layers weight & bias
 weights = {
     # Filter Width, Filter Height, Filter Slices, Filter Depth (Image channels), Filter Count
 
     # 96 Filters of shape 5x5x5x1
-    'wc1': tf.Variable(tf.random_normal([5, 5, 5, 1, 12])),
+    'wc1': tf.Variable(tf.random_normal([3, 3, 3, 1, 32])),
     
-    # Due to padding the output size remains the same @ 64x64x64x12
-    # maxpool3d with k = 6 and stride= 2
-    # Output of maxpool3d = ( (64-6)/2 )  + 1 = 30
-    # Output volume 30x30x30x12 (Filter number remains the same after maxpooling)
+    # Due to padding the output size remains the same @ 85x85x85x48
+    # maxpool3d with k = 7 and stride= 2
+    # Output of maxpool3d = ( (85-6)/2 )  + 1 = 40
+    # Output volume 40x40x40x96 (Filter number remains the same after maxpooling)
+    'mp1': {'k':7, 's':2},
     
-    # 12 Filters of shape 5x5x5x12
-    'wc2': tf.Variable(tf.random_normal([5, 5, 5, 12, 12])),
+    # 12 Filters of shape 5x5x5x96
+    'wc2': tf.Variable(tf.random_normal([3, 3, 3, 32, 32])),
 
-    # Due to padding the output size remains the same @ 30x30x30x12
+    'mp2': {'k':6, 's':2},
+    
+    # Due to padding the output size remains the same @ 40x40x40x48
     # maxpool3d with k = 6 and stride= 2
-    # Output of maxpool3d = ( (30-2)/2 ) + 1 = 15
-    # Output volume 15x15x15x12 (Filter number remains the same after maxpooling)
+    # Output of maxpool3d = ( (40-6)/2 ) + 1 = 17
+    # Output volume 20x20x20x12 (Filter number remains the same after maxpooling)
 
     
     # fully connected, 8*8*12 inputs, 256 outputs
-    'wd1': tf.Variable(tf.random_normal([8*8*8*12, 256])),
+    'wd1': tf.Variable(tf.random_normal([17*17*17*32, 256])),
     # 256 inputs, 2 outputs (class prediction)
     'out': tf.Variable(tf.random_normal([256, n_classes]))
 }
 
 
 biases = {
-    'bc1': tf.Variable(tf.random_normal([12])),
-    'bc2': tf.Variable(tf.random_normal([12])),
+    'bc1': tf.Variable(tf.random_normal([32])),
+    'bc2': tf.Variable(tf.random_normal([32])),
     'bd1': tf.Variable(tf.random_normal([256])),
     'out': tf.Variable(tf.random_normal([n_classes]))
 }
@@ -88,8 +94,6 @@ pred = conv_net(x, data_shape, weights, biases, keep_prob)
 with tf.name_scope('cross_entropy'):
     with tf.name_scope('total'):
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y))
-        regularizers = (tf.nn.l2_loss(weights['wd1']) + tf.nn.l2_loss(biases['bd1']))
-        cost += 5e-4 * regularizers
         tf.scalar_summary('cost', cost)
 
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
@@ -121,7 +125,7 @@ step = 1
 
 with sess:
     
-    test_batch_x, test_batch_y = test_dataset.next_batch(15)
+    test_batch_x, test_batch_y = test_dataset.next_batch(batch_size)
     test_dict = {
         x: test_batch_x,
         y: test_batch_y,
@@ -136,7 +140,7 @@ with sess:
         train_dict = {
             x: batch_x, 
             y: batch_y, 
-            keep_prob: 0.75
+            keep_prob: 1.0
         }
                         
         # Run optimization op (backprop)
@@ -159,7 +163,9 @@ with sess:
         step += 1
         
     saver = tf.train.Saver()
-    save_path = saver.save(sess, "models/" + str_now + ".ckpt")
+    save_path = saver.save(sess, "/tmp/model.ckpt")
+    print("Model saved in file: %s" % save_path)
+
     print("Optimization Finished!")
 
 train_writer.close()
