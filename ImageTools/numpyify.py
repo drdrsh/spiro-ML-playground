@@ -41,14 +41,13 @@ def pad_image(image, target_dim):
 	trim_start_list = [0, 0, 0]
 	trim_end_list = [0, 0, 0]
 
-
 	for i in range(len(size)):
 
 		to_trim = 0
 		if size[i] > target_dim[i]:
 			to_trim = size[i] - target_dim[i]
-		if  int( (to_trim * 100) / target_dim[i]) >= 25:
-			# Difference between image size and target size is different by more than 25%
+		if  int( (to_trim * 100) / target_dim[i]) >= 50:
+			# Difference between image size and target size is different by more than 50%
 			# Trimming will likely destroy image data, discard the image altogether
 			return None
 
@@ -135,6 +134,7 @@ def process_path(input_path, output_path, labels_table, num_classes, out_dim) :
 
 		files_done += 1
 
+	# print(np.array(X).shape)
 	# print("Writing last batch")
 	write_batch(X, Y, batch_number, output_path)
 	batches_written += 1
