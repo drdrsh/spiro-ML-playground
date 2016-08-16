@@ -365,7 +365,7 @@ int main(int argc, const char* argv[]) {
 
 		boost::random::mt19937 rng(time(0));
 
-        double op_prob[] = {0.1, 0.4, 0.4, 0.1};
+        double op_prob[] = {0.1, 0.5, 0.3, 0.1};
         boost::random::discrete_distribution<unsigned int> operationDice(op_prob);
 		enum operation {NOISE, TPS, ROTATE, SHEAR};
 
