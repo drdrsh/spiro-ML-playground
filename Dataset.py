@@ -12,25 +12,39 @@ class DatasetState(Enum):
 class DatasetManager:
     
     def __init__(self,
-                 train="",
-                 test ="", 
+                 train=None,
+                 test =None, 
                  epochs_per_ds=5,
                  target_shape=None):
         
         
+        self.fake_data = False
         self.data_path = train
         self.test_path = test
         self.target_shape = target_shape
         self.number_of_datasets = 2
         self.datasets = {}
         self.epochs_per_ds = epochs_per_ds
-        self.data_files = glob.glob(self.data_path + "data_*")
-        self.test_files = glob.glob(self.test_path + "data_*")
-        print(self.test_files)
-        self.load_dataset(0, async=False)
-        self.load_dataset(1, async=True)
         
+        if train is not None and test is not None:
+            self.data_files = glob.glob(self.data_path + "data_*")
+            self.test_files = glob.glob(self.test_path + "data_*")
+            self.load_dataset(0, async=False)
+            self.load_dataset(1, async=True)
+        else:
+            self.fake_data = True
+            self.generate_fake_data(target_shape)
+            
         self.active_dataset_index = 0
+        
+    def generate_fake_data(self, target_shape):
+        
+        self.datasets['0'] = Dataset(fake=True)
+        self.datasets['0'].load(target_shape=target_shape)
+        self.datasets['1'] = self.datasets['0']
+        
+        
+        
         
     def get_current_dataset(self) :
         return self.datasets[str(self.active_dataset_index)]
@@ -66,6 +80,9 @@ class DatasetManager:
         
     def next_dataset(self):
         
+        if self.fake_data:
+            return self.datasets['0']
+        
         # Unload old dataset
         unloaded_ds_index = self.active_dataset_index
 
@@ -91,6 +108,9 @@ class DatasetManager:
 
  
     def get_test_dataset(self):
+        if self.fake_data:
+            return self.datasets['0']
+        
         ds = Dataset()
         data_filename, labels_filename = self.get_random_dataset_pair('test')
         return ds.load(
@@ -133,7 +153,9 @@ class DatasetLoader(threading.Thread):
             for i in range(len(self.target_shape)):
                 
                 padding_size = self.target_shape[i] - X.shape[i + 1]
-                assert padding_size >= 0
+                
+                if padding_size >= 0 :
+                    raise("Padding size >= 0 " + str(X.shape) + " -> " + str(self.target_shape))
                 
                 # If padding size is even then we just put half padding on each side
                 # If padding size is odd we add the smaller number before and the larger after
@@ -155,13 +177,21 @@ class DatasetLoader(threading.Thread):
     
 class Dataset:
     
-    def __init__(self):
+    def __init__(self, fake=False):
         self.state = DatasetState.Null
         self._index_in_epoch = 0
         self._epochs_completed = 0
+        self._num_examples = 0
+        self.original_X_shape  = None
         self.loader = None
         self.filename = None
-    
+        
+        
+        self.is_fake = fake
+        if fake:
+            print('Warning: Using fake data')
+
+        
     def onDatasetLoaded(self, loader):
         
         self.X = loader.X
@@ -173,31 +203,49 @@ class Dataset:
         self.state = DatasetState.Loaded
         print('Loaded dataset ' + loader.data_filename)
 
+    def load_fake_data(self, target_shape):
+        
+        target_shape = list(target_shape)
+        target_shape.insert(0, self._num_examples)
+        self._num_examples = 40
+        self.original_X_shape = target_shape 
+        self.state = DatasetState.Loaded
+
+
+        dim = 1
+        for i in target_shape:
+            dim *= i
+            
+        self.X = np.random.random_sample(size=(self._num_examples, dim))
+        self.Y = np.random.random_integers(0, 1, size=(self._num_examples, 2))
+        
+        print('Loaded fake data')
+
+        return self
         
         
     def load(self, 
-             data_filename="", 
-             labels_filename="", 
+             data_filename=None, 
+             labels_filename=None, 
              target_shape=None, 
              async=False) :
         
         assert self.state is DatasetState.Null
-            
-
+        
+        if self.is_fake:
+            return self.load_fake_data(target_shape)
+        
         self.loader = DatasetLoader(
-                        self, 
-                        data_filename=data_filename, 
-                        labels_filename=labels_filename, 
-                        target_shape=target_shape)
-        
-        
+            self, 
+            data_filename=data_filename, 
+            labels_filename=labels_filename, 
+            target_shape=target_shape)
         print('Loading dataset ' + self.loader.data_filename + (' (async) ' if async else ' (sync) '))
         self.filename = data_filename
         self.loader.start()
         if async is False:
             self.loader.join()
             return self
-        
         return None
 
         
