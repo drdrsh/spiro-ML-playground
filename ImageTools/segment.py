@@ -50,6 +50,10 @@ for file in input_files:
 	basename = os.path.basename(file)
 	full_input_path  = os.path.abspath(input_path  + '/' + basename)
 	full_output_path = os.path.abspath(output_path + '/' + basename)
+	if os.path.isfile(full_output_path):
+		filesize = os.stat(full_output_path).st_size
+		if filesize != 0:
+			continue
 
 	exe_path = os.path.abspath(Config.get('bin_root') + '/LungSegment')
 
