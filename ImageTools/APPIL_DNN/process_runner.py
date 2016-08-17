@@ -46,11 +46,13 @@ class ProcessRunner:
 		self.wait_for_empty_queue()
 
 	def update_cli(self):
+		total_pct = 100 if self.files_total == 0 else  (self.files_done / self.files_total) * 100
+
 		sys.stdout.write(
 			(self.format).format(
 				self.files_done,
 				self.files_total,
-				(self.files_done / self.files_total) * 100
+				total_pct
 			)
 		)
 		sys.stdout.flush()
