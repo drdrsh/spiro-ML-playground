@@ -15,7 +15,7 @@
 #include <itkBinaryDilateImageFilter.h>
 #include <itkBinaryBallStructuringElement.h>
 #include <itkRegionOfInterestImageFilter.h>
-
+#include <itkImageLinearIteratorWithIndex.h>
 
 #define IMAGE_DIMENSIONS   3
 #define INPUT_IMAGE_DATA   int
@@ -31,10 +31,57 @@ typedef itk::BinaryBallStructuringElement < INPUT_IMAGE_DATA, IMAGE_DIMENSIONS >
 typedef itk::BinaryErodeImageFilter < InputImageType, InputImageType, StructuringElementType> ErodeFilterType;
 typedef itk::BinaryDilateImageFilter < InputImageType, InputImageType, StructuringElementType> DilateFilterType;
 typedef itk::MaskImageFilter< InputImageType, InputImageType, InputImageType> MaskFilterType;
-
+typedef itk::ImageLinearConstIteratorWithIndex< InputImageType > LinearIteratorType;
 
 //typedef itk::Statistics::ScalarImageTextureCalculator<ImageTypeInt> TextureCalculator;
+#define LUNG_THRESHOLD -700
+#define COUNT_THRESHOLD 0.1
+#define SLICE_DIRECTION 0
+#define RIGHT_LUNG		0
+#define LEFT_LUNG		1
+InputImageType::IndexType get_seed(InputImageType::Pointer image, int lung) {
 
+	InputImageType::SizeType imageSize = image->GetLargestPossibleRegion().GetSize();
+	InputImageType::IndexType regionStart;
+	InputImageType::SizeType  regionSize;
+	for (int i = 0; i < IMAGE_DIMENSIONS; i++) {
+		if (i == SLICE_DIRECTION) {
+			if(lung == RIGHT_LUNG) {
+				regionStart[i] = imageSize[i] / 2 - 1;
+			}
+			else {
+				regionStart[i] = 0;
+			}
+			regionSize[i] = (int)(imageSize[i] / 2) - 1;
+			continue;
+		}
+		regionStart[i] = (int)(imageSize[i] / 2);
+		regionSize[i] = 1;
+	}
+	InputImageType::RegionType targetRegion(regionStart, regionSize);
+	bool is_found = false;
+	int number_of_lung_voxels = 0;
+	int target_lung_voxels = imageSize[SLICE_DIRECTION] * COUNT_THRESHOLD;
+	LinearIteratorType it(image, targetRegion);
+	it.SetDirection(SLICE_DIRECTION);
+
+	it.GoToBegin();
+	while (!it.IsAtEnd()) {
+		while (!it.IsAtEndOfLine()) {
+			int value = it.Get();
+			if (value < LUNG_THRESHOLD) {
+				number_of_lung_voxels++;
+				if (number_of_lung_voxels >= target_lung_voxels) {
+					//it.Set(2500);
+					return it.GetIndex();
+				}
+			}
+			++it;
+		}
+		it.NextLine();
+	}
+	return InputImageType::IndexType();
+}
 
 int main (int argc, char *argv[]) {
 
@@ -77,11 +124,10 @@ int main (int argc, char *argv[]) {
     radius[2] = 1;
     neighborhoodConnected->SetRadius(radius);
 
+	InputImageType::IndexType leftSeed = get_seed(inputImage, LEFT_LUNG);
+    InputImageType::IndexType rightSeed = get_seed(inputImage, RIGHT_LUNG);
 
-    InputImageType::IndexType leftSeed;
-    InputImageType::IndexType rightSeed;
-
-
+	/*
     int leftX  = (imageSize[0] / 4);
     int rightX = (imageSize[0] - imageSize[0] / 4);
     int halfY  = (imageSize[1] / 2);
@@ -94,6 +140,7 @@ int main (int argc, char *argv[]) {
     rightSeed[0] = rightX;
     rightSeed[1] = halfY;
     rightSeed[2] = halfZ;
+	*/
 
     neighborhoodConnected->AddSeed(leftSeed);
     neighborhoodConnected->AddSeed(rightSeed);
