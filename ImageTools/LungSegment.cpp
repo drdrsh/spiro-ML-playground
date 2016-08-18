@@ -34,53 +34,100 @@ typedef itk::MaskImageFilter< InputImageType, InputImageType, InputImageType> Ma
 typedef itk::ImageLinearConstIteratorWithIndex< InputImageType > LinearIteratorType;
 
 //typedef itk::Statistics::ScalarImageTextureCalculator<ImageTypeInt> TextureCalculator;
-#define LUNG_THRESHOLD -700
-#define COUNT_THRESHOLD 0.1
+#define LUNG_THRESHOLD -750
+#define LUNG_MEDIAN    -820
 #define SLICE_DIRECTION 0
 #define RIGHT_LUNG		0
 #define LEFT_LUNG		1
-InputImageType::IndexType get_seed(InputImageType::Pointer image, int lung) {
+
+struct Voxel{
+    Voxel(InputImageType::IndexType i, InputImageType::PixelType p) {
+        idx = i;
+        val = p;
+    }
+    InputImageType::IndexType idx;
+    InputImageType::PixelType val;
+};
+
+bool sortVoxels(const Voxel &lhs, const Voxel &rhs) { return lhs.val < rhs.val; }
+
+std::vector<InputImageType::IndexType> get_seed(InputImageType::Pointer image, int lung) {
+
+    std::vector<InputImageType::IndexType> indices;
+    std::vector<std::vector<Voxel>> sequences;
+
 
 	InputImageType::SizeType imageSize = image->GetLargestPossibleRegion().GetSize();
 	InputImageType::IndexType regionStart;
 	InputImageType::SizeType  regionSize;
-	for (int i = 0; i < IMAGE_DIMENSIONS; i++) {
-		if (i == SLICE_DIRECTION) {
+	for (unsigned int j = 0; j < IMAGE_DIMENSIONS; j++) {
+		if (j == SLICE_DIRECTION) {
 			if(lung == RIGHT_LUNG) {
-				regionStart[i] = imageSize[i] / 2 - 1;
+				regionStart[j] = imageSize[j] / 2 - 1;
 			}
 			else {
-				regionStart[i] = 0;
+				regionStart[j] = 0;
 			}
-			regionSize[i] = (int)(imageSize[i] / 2) - 1;
+			regionSize[j] = (int)(imageSize[j] / 2) - 1;
 			continue;
 		}
-		regionStart[i] = (int)(imageSize[i] / 2);
-		regionSize[i] = 1;
+		regionStart[j] = (int)(imageSize[j] / 2) - 2;
+		regionSize[j] = 5;
 	}
 	InputImageType::RegionType targetRegion(regionStart, regionSize);
 	bool is_found = false;
 	int number_of_lung_voxels = 0;
-	int target_lung_voxels = imageSize[SLICE_DIRECTION] * COUNT_THRESHOLD;
-	LinearIteratorType it(image, targetRegion);
+
+    LinearIteratorType it(image, targetRegion);
 	it.SetDirection(SLICE_DIRECTION);
 
 	it.GoToBegin();
 	while (!it.IsAtEnd()) {
-		while (!it.IsAtEndOfLine()) {
+        std::vector<Voxel> voxels;
+        for(;!it.IsAtEndOfLine(); ++it) {
 			int value = it.Get();
 			if (value < LUNG_THRESHOLD) {
 				number_of_lung_voxels++;
-				if (number_of_lung_voxels >= target_lung_voxels) {
-					//it.Set(2500);
-					return it.GetIndex();
-				}
+                Voxel v = Voxel(it.GetIndex(), value);
+                voxels.push_back(v);
+                continue;
 			}
-			++it;
+
+            if(!voxels.empty()) {
+                sequences.push_back(voxels);
+            }
+            voxels.clear();
 		}
 		it.NextLine();
 	}
-	return InputImageType::IndexType();
+
+    std::vector<Voxel> longest_sequence;
+    for (std::vector<std::vector<Voxel>>::iterator it = sequences.begin() ; it != sequences.end(); ++it) {
+        std::vector<Voxel> x = *it;
+        if(x.size() > longest_sequence.size()) {
+            longest_sequence = x;
+        }
+    }
+
+    for (std::vector<Voxel>::iterator it = longest_sequence.begin() ; it != longest_sequence.end(); ++it) {
+        if(it == longest_sequence.begin() || it == longest_sequence.end()) {
+            continue;
+        }
+        Voxel x = *it;
+        indices.push_back(x.idx);
+    }
+
+
+
+    //std::sort(longest_sequence.begin(), longest_sequence.end(), sortVoxels);
+    int size = longest_sequence.size();
+    if(size % 2 == 0) {
+        //indices.push_back(longest_sequence[size/2].idx);
+    } else {
+        //indices.push_back(longest_sequence[(int)(size/2+1)].idx);
+    }
+
+    return indices;
 }
 
 int main (int argc, char *argv[]) {
@@ -106,8 +153,8 @@ int main (int argc, char *argv[]) {
     thresholdFilter->SetInput(inputImage);
     thresholdFilter->SetInsideValue(1);
     thresholdFilter->SetOutsideValue(0);
-    thresholdFilter->SetLowerThreshold(-1000.0);
-    thresholdFilter->SetUpperThreshold(-400.0);
+    thresholdFilter->SetLowerThreshold(-1500);
+    thresholdFilter->SetUpperThreshold(-400);
     thresholdFilter->SetNumberOfThreads(8);
 
 
@@ -115,7 +162,7 @@ int main (int argc, char *argv[]) {
     neighborhoodConnected->SetInput( thresholdFilter->GetOutput() );
     neighborhoodConnected->SetLower(1);
     neighborhoodConnected->SetUpper(1);
-    neighborhoodConnected->SetReplaceValue(1);//TODO: magic number
+    neighborhoodConnected->SetReplaceValue(1);
     neighborhoodConnected->SetNumberOfThreads(8);
 
     InputImageType::SizeType radius;
@@ -123,9 +170,6 @@ int main (int argc, char *argv[]) {
     radius[1] = 1;
     radius[2] = 1;
     neighborhoodConnected->SetRadius(radius);
-
-	InputImageType::IndexType leftSeed = get_seed(inputImage, LEFT_LUNG);
-    InputImageType::IndexType rightSeed = get_seed(inputImage, RIGHT_LUNG);
 
 	/*
     int leftX  = (imageSize[0] / 4);
@@ -141,9 +185,19 @@ int main (int argc, char *argv[]) {
     rightSeed[1] = halfY;
     rightSeed[2] = halfZ;
 	*/
+    std::vector<InputImageType::IndexType> seeds;
+    std::vector<InputImageType::IndexType> s;
 
-    neighborhoodConnected->AddSeed(leftSeed);
-    neighborhoodConnected->AddSeed(rightSeed);
+    s = get_seed(inputImage, LEFT_LUNG);
+    seeds.insert(seeds.end(), s.begin(), s.end());
+
+    s = get_seed(inputImage, RIGHT_LUNG);
+    seeds.insert(seeds.end(), s.begin(), s.end());
+
+    for(std::vector<InputImageType::IndexType>::iterator it = seeds.begin() ; it != seeds.end(); ++it) {
+        neighborhoodConnected->AddSeed(*it);
+    }
+
     /*
     HoleFillingType::Pointer holeFillingFilter = HoleFillingType::New();
     radius[0] = 2;
