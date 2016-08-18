@@ -2,25 +2,19 @@
 
 import SimpleITK as sitk
 import numpy as np
-import csv, os, glob, sys, random
+import csv, os, glob, sys, random, math
+from queue import *
 
-import APPIL_DNN.data
+from APPIL_DNN.data import *
+from APPIL_DNN.basic_cli import BasicCLI
 from APPIL_DNN.cli import CLI
+
 from APPIL_DNN.config import Config
 from APPIL_DNN.process_runner import ProcessRunner
 
 
-def update_cli(total_files, files_done, batches_written ):
-	sys.stdout.write(
-		'Converting image to numpy array, {0} out of {1} files processed ({3} batches written) ({2:.2f}%)\r'
-			.format(
-				files_done,
-				total_files,
-				(files_done/total_files) * 100 ,
-				batches_written
-			)
-	)
-	sys.stdout.flush()
+std_printer = BasicCLI()
+
 
 
 def write_batch(X, Y, batch_number, np_path):
@@ -32,6 +26,17 @@ def write_batch(X, Y, batch_number, np_path):
 	# print("Writing file " + filename)
 	np.save(np_path + '/' + filename, np.array(Y))
 
+
+def read_image(image_path, target_dim):
+
+	try:
+		image = sitk.ReadImage(image_path)
+	except(RuntimeError):
+		return None
+
+	arr = pad_image(image, target_dim)
+
+	return arr
 
 
 def pad_image(image, target_dim):
@@ -66,24 +71,94 @@ def pad_image(image, target_dim):
 
 	# TODO: Resample images that are larger after padding (images with z-spacing < 1.0)
 
-	x = np.pad(arr, padding_map, mode='constant',constant_values=0)
+	x = np.pad(arr, padding_map, mode='constant', constant_values=0)
 
 	# Zero center and normalize data
-	x = np.float32(x)
-	x -= np.mean(x)
-	x /= np.std(x)
+	#x = np.float32(x)
+	#x -= np.mean(x)
+	#x /= np.std(x)
 
 	return np.int16(x)
 
+def stat_worker(q, rs, target_dim, std_printer):
 
-def process_path(input_path, output_path, labels_table, num_classes, out_dim) :
+	while True:
+		image_path= q.get()
+		if image_path is None:
+			q.task_done()
+			break
+
+		arr = read_image(image_path, target_dim)
+		if arr is not None:
+			rs.add_batch(arr)
+
+		files_done  = std_printer.get_variable('files_done') + 1
+		total_files = std_printer.get_variable('total_files')
+
+		std_printer.set_variable('files_done',  files_done)
+		std_printer.set_variable('files_done_pct', (files_done / total_files) * 100)
+
+		q.task_done()
+
+
+def get_data_stats(input_path, out_dim):
+
+	global std_printer
+	rs = RunningStat()
+	max_threads = 20
+
+	images = glob.glob(input_path + '/' + "*.nrrd")
+
+	total_files = len(images)
+
+	std_printer.set_format('Gathering image statistics {files_done} out of {total_files} files processed ({files_done_pct:.2f}%)\r')
+	std_printer.set_variables({
+		'total_files'   : total_files,
+		'files_done'    : 0,
+		'files_done_pct': 0
+	})
+
+	assert len(images) != 0
+
+	task_queue = Queue()
+	for image_path in images:
+		task_queue.put(image_path)
+
+	threads = []
+	for i in range(max_threads):
+		t = threading.Thread(target=stat_worker, args=(task_queue, rs, out_dim, std_printer))
+		t.start()
+		threads.append(t)
+		task_queue.put(None)
+
+
+	task_queue.join()
+
+	for t in threads:
+		t.join()
+
+	std_printer.add_line("Data mean {m}, Data variance {v}".format(**{'m': rs.get_meanvalue(), 'v': rs.get_variance()}))
+
+	return rs.get_meanvalue(), rs.get_variance()
+
+
+
+def process_path(input_path, output_path, labels_table, num_classes, out_dim, mean, var) :
+
+
+	global std_printer
 
 	images = glob.glob(input_path + '/' + "*.nrrd")
 	random.shuffle(images)
 
-	files_done = 0
-	batches_written = 0
 	total_files = len(images)
+	std_printer.set_format('Converting image to numpy array, {files_done} out of {total_files} files processed ({batches_written} batches written) ({files_done_pct:.2f}%)\r')
+	std_printer.set_variables({
+		'total_files'    : total_files,
+		'batches_written': 0,
+		'files_done'     : 0,
+		'files_done_pct' : 0
+	})
 
 	cum_batch_size = 0
 	batch_number = 0
@@ -95,27 +170,23 @@ def process_path(input_path, output_path, labels_table, num_classes, out_dim) :
 
 	for image_path in images:
 
-		update_cli(total_files, files_done, batches_written)
-
 		# print("Processing subject {0})".format(record_id))
 		record_id = ((os.path.splitext(os.path.basename(image_path))[0]).split('_'))[0]
 		label = labels_table[record_id]
 		cls[label] = 1
 
-		try:
-			image = sitk.ReadImage(image_path)
-		except(RuntimeError):
-			#print("Invalid image {0}".format(image_path))
-			files_done += 1
-			continue
-
-		arr = pad_image(image, out_dim)
+		arr = read_image(image_path, out_dim)
 		if arr is None:
-			#print("Discarding subject {0}\n".format(record_id))
-			files_done += 1
+			files_done  = std_printer.get_variable('files_done') + 1
+			std_printer.set_variable('files_done',  files_done)
+			std_printer.set_variable('files_done_pct', (files_done / total_files) * 100)
 			continue
 
-		# print("Array size = {0} bytes".format(arr.nbytes))
+		#Zero center and normalize data
+		arr  = np.float32(arr)
+		arr -= mean
+		arr /= math.sqrt(abs(var))
+		arr  = np.int16(arr)
 
 		if cum_batch_size + arr.nbytes > batch_max_size:
 
@@ -125,21 +196,24 @@ def process_path(input_path, output_path, labels_table, num_classes, out_dim) :
 			Y = []
 			cum_batch_size = 0
 			batch_number += 1
-			batches_written += 1
+			batches_written  = std_printer.get_variable('batches_written') + 1
+			std_printer.set_variable('batches_written',  batches_written)
 
 		cum_batch_size += arr.nbytes
 
 		X.append(arr)
 		Y.append(cls)
 
-		files_done += 1
+		files_done  = std_printer.get_variable('files_done') + 1
+		std_printer.set_variable('files_done',  files_done)
+		std_printer.set_variable('files_done_pct', (files_done / total_files) * 100)
 
 	# print(np.array(X).shape)
 	# print("Writing last batch")
 	write_batch(X, Y, batch_number, output_path)
-	batches_written += 1
-	update_cli(total_files, files_done, batches_written)
-	print("\nDone!\n")
+	batches_written  = std_printer.get_variable('batches_written') + 1
+	std_printer.set_variable('batches_written',  batches_written)
+	std_printer.add_line("Done!")
 
 
 if len(sys.argv) > 1:
@@ -162,7 +236,7 @@ try:
 except KeyError:
 	pass
 
-num_examples, num_classes, labels_table = APPIL_DNN.data.get_labels()
+num_examples, num_classes, labels_table = get_labels()
 
 scale_factor  = 1/active_shrink_factor
 
@@ -177,12 +251,17 @@ runs = {
 	'test' : ['raw', 'segmented']
 }
 
+mode = 1 if segment_enabled else 0
+input_path  = CLI.get_path('train' , runs['train'][mode],  active_shrink_factor)
+mean, var = get_data_stats(input_path, out_dim)
+
+
 for i in runs:
 
 	print('\nProcessing {0} data\n'.format(i))
 
 	input_type = i
-	mode = 1 if segment_enabled else 0
+
 	input_subtype = runs[i][mode]
 	input_path  = CLI.get_path(i , input_subtype,  active_shrink_factor)
 	output_path = CLI.get_path(i, input_subtype + '_np', active_shrink_factor)
@@ -190,4 +269,4 @@ for i in runs:
 		os.makedirs(output_path)
 	except FileExistsError:
 		pass
-	process_path(input_path, output_path, labels_table, num_classes, out_dim)
+	process_path(input_path, output_path, labels_table, num_classes, out_dim, mean, var)
