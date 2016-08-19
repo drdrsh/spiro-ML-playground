@@ -186,6 +186,7 @@ def process_path(input_path, output_path, labels_table, num_classes, out_dim, me
 		arr  = np.float32(arr)
 		arr -= mean
 		arr /= math.sqrt(abs(var))
+		# arr /= abs(var)
 		# arr  = np.int16(arr)
 
 		if cum_batch_size + arr.nbytes > batch_max_size:
