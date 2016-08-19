@@ -55,7 +55,7 @@ def conv_net(x, data_shape, weights, biases, dropout):
     
     # Max Pooling (down-sampling)
     print("Input to MaxPool2 " + str(conv2.get_shape()))
-    conv2 = maxpool3d(conv2, strides=weights['mp1']['s'], k=weights['mp1']['k'], name="maxpool2")
+    conv2 = maxpool3d(conv2, strides=weights['mp2']['s'], k=weights['mp2']['k'], name="maxpool2")
     print("Output to MaxPool2 " + str(conv2.get_shape()))
     
     # Fully connected layer
