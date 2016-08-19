@@ -32,6 +32,9 @@ except FileExistsError:
 num_examples, num_classes, labels_table = APPIL_DNN.data.get_labels()
 
 input_files = glob.glob(input_path + '/' + "*.nrrd")
+file_count = Config.get('file_count')
+if file_count > 0 and len(input_files) > file_count:
+	input_files = input_files[0:file_count]
 
 
 # Pre run over the data to estimate class imbalance

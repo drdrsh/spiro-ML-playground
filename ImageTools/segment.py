@@ -12,6 +12,7 @@ if len(sys.argv) > 1:
 segment_enabled = Config.get('segment_enabled')
 active_shrink_factor = Config.get('active_shrink_factor')
 
+
 output_subtype  = 'segmented' if segment_enabled  else 'raw'
 input_path  = CLI.get_path('train', 'original_raw', active_shrink_factor)
 output_path = CLI.get_path('train', 'original_seg',  active_shrink_factor)
@@ -23,7 +24,13 @@ try:
 except FileExistsError:
 	pass
 
+
 input_files = glob.glob(input_path + '/' + "*.nrrd")
+
+file_count = Config.get('file_count')
+if file_count > 0 and len(input_files) > file_count:
+	input_files = input_files[0:file_count]
+
 
 if segment_enabled is not True:
 
