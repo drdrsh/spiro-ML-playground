@@ -33,7 +33,15 @@ images = []
 for i in range(grid_size[0]):
     for j in range(grid_size[1]):
         counter = i * grid_size[0] + j
-        image = sitk.ReadImage(input_files[counter], sitk.sitkFloat32)
+        is_error = True
+        while is_error:
+            try:
+                image = sitk.ReadImage(input_files[counter], sitk.sitkFloat32)
+                is_error = False
+            except:
+                counter += 1
+                is_error = True
+
         image_size = image.GetSize()
         selected_slice = int(image_size[2] / 2)
         nd_image = sitk.GetArrayFromImage(image)

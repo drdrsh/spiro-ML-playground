@@ -65,12 +65,16 @@ for file in input_files:
     full_input_path  = os.path.abspath(file)
     full_output_path = os.path.abspath(output_path + '/')
 
-    # Augment this image taking into account class imabalnce
+    # Augment this image taking into account class imbalance
     count = int(counts[label])
 
     exe_path = os.path.abspath(Config.get('bin_root') + '/ImageAugment')
 
-    runner.enqueue(count, [exe_path, '--input', full_input_path, '--output', full_output_path, '--count', str(count)])
+    runner.enqueue(count, [exe_path,
+                           '--input', full_input_path,
+                           '--output', full_output_path,
+                           '--count', str(count),
+                           '--thread', '2'])
 
 runner.run()
 

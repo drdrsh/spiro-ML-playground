@@ -24,8 +24,8 @@
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/random/discrete_distribution.hpp>
-
-
+#include <boost/thread/thread.hpp>
+#include <boost/lockfree/queue.hpp>
 
 typedef signed short    PixelType;
 typedef   double        CoordinateRepType;
@@ -50,8 +50,35 @@ typedef   itk::Point< CoordinateRepType, Dimension>        PointType;
 typedef   TPSTransformType::PointSetType				   PointSetType;
 typedef   PointSetType::PointIdentifier                    PointIdType;
 
+typedef void(*OperationFunction)(ImageType::Pointer, std::string);
+
 typedef std::vector<int> IntVector;
 typedef std::vector<std::thread> ThreadVector;
+
+
+ImageType::Pointer globalInputImage;
+
+class ImageJob {
+
+public:
+    char outputFilename[2048];
+    OperationFunction operation;
+
+    ImageJob() {}
+
+    ImageJob(const ImageJob& rhs) {
+        strcpy(outputFilename, rhs.outputFilename);
+        operation = rhs.operation;
+    }
+
+
+    ImageJob( OperationFunction p, std::string o) {
+        operation = p;
+        o.copy(outputFilename, 2048, 0);
+    }
+};
+
+boost::lockfree::queue<ImageJob> queue(128);
 
 bool file_exists(std::string filename) {
     return boost::filesystem::exists(filename) && boost::filesystem::file_size(filename) != 0;
@@ -189,11 +216,16 @@ void deform_rotate(ImageType::Pointer inputImage, std::string outputFilename) {
 
 	float degRange = 5.0f;
 	boost::random::mt19937 rng(time(0));
-	boost::random::uniform_int_distribution<> idd(-50, 50);
+	boost::random::uniform_int_distribution<> idd(-500, 500);
+
+    float x = (float)idd(rng);
+    float y = (float)idd(rng);
+    float z = (float)idd(rng);
+
 	float angles[3] = {
-		degRange * ((float)idd(rng) / 50.0f),
-		degRange * ((float)idd(rng) / 50.0f),
-		degRange * ((float)idd(rng) / 50.0f),
+		degRange * (x / 500.0f),
+		degRange * (y / 500.0f),
+		degRange * (z / 500.0f)
 	};
 
 	AffineTransformType::Pointer transform = AffineTransformType::New();
@@ -246,6 +278,7 @@ void deform_noise(ImageType::Pointer inputImage, std::string outputFilename) {
 	save_image(filter->GetOutput(), outputFilename);
 }
 
+
 void deform_histogram(ImageType::Pointer inputImage, std::string outputFilename) {
 
 }
@@ -259,8 +292,8 @@ void deform_tps(ImageType::Pointer inputImage, std::string outputFilename) {
 	boost::random::uniform_int_distribution<> iid(-100, 100);
 
     float rnd = (float)iid(rng);
-	float deform_factor = 0.3f * (float)( (rnd + 1) / 100.0f);
-	unsigned int deform_landmarks = 500;
+	float deform_factor = 0.1f * (rnd / 100.0f);
+	unsigned int deform_landmarks = 200;
 
     ImageType::SizeType imageSize = inputImage->GetLargestPossibleRegion().GetSize();
 
@@ -317,17 +350,31 @@ void deform_tps(ImageType::Pointer inputImage, std::string outputFilename) {
 	save_image(resampler->GetOutput(), outputFilename);
 }
 
+
+
+
+void process_entry(void) {
+
+    ImageJob job;
+
+    while(queue.pop(job)) {
+        std::string o = job.outputFilename;
+        job.operation(globalInputImage, o);
+    }
+
+}
+
 int main(int argc, const char* argv[]) {
 	
 	try {
-
 		namespace po = boost::program_options;
 		boost::program_options::options_description desc{ "Options" };
 		desc.add_options()
 			("help,h", "Help screen")
 			("input,i", po::value<std::string>()->default_value(""), "Input filename.")
             ("output,o", po::value<std::string>()->default_value(""), "Output directory.")
-            ("count,c", po::value<unsigned int>()->default_value(50), "Number of augmentation for the image.");
+            ("count,c", po::value<unsigned int>()->default_value(50), "Number of augmentation for the image.")
+            ("threads,t", po::value<unsigned int>()->default_value(8), "Number of threads to use.");
 
 		boost::program_options::variables_map vm;
 		boost::program_options::store(po::parse_command_line(argc, argv, desc), vm);
@@ -353,60 +400,67 @@ int main(int argc, const char* argv[]) {
         const std::string inputFilename = vm["input"].as<std::string>();
         const std::string outputDirName = vm["output"].as<std::string>();
         const unsigned int augment_count = vm["count"].as<unsigned int>();
+        const unsigned int number_of_threads = vm["threads"].as<unsigned int>();
 
 		ReaderType::Pointer reader = ReaderType::New();
 		reader->SetFileName(inputFilename);
 		reader->Update();
 		
 		ImageType::Pointer inputImage = reader->GetOutput();
+        globalInputImage = inputImage;
 
         boost::filesystem::path filenameParts(inputFilename);
 		std::string basename = filenameParts.stem().generic_string();
 
 		boost::random::mt19937 rng(time(0));
 
-        double op_prob[] = {0.0, 0.5, 0.3, 0.2};
+        double op_prob[] = {0.0, 0.5, 0.5, 0.0};
         boost::random::discrete_distribution<unsigned int> operationDice(op_prob);
 		enum operation {NOISE, TPS, ROTATE, SHEAR};
 
-		ThreadVector threads;
-		for (unsigned int i = 0; i < augment_count; i++) {
+        std::string outputFilename = boost::filesystem::path(outputDirName + "/" + basename + "_" + std::to_string(0) + ".nrrd").generic_string();
+
+
+        WriterType::Pointer writer = WriterType::New();
+        writer->SetFileName(outputFilename);
+        writer->UseCompressionOn();
+        writer->SetInput(inputImage);
+        std::cout << std::endl << "Writing: " << outputFilename << std::endl;
+        writer->Update();
+        boost::thread_group workers;
+        for (unsigned int i = 1; i < augment_count; i++) {
 
 			int op = operationDice(rng);
-			std::string outputFilename = boost::filesystem::path(outputDirName + "/" + basename + "_" + std::to_string(i) + ".nrrd").generic_string();
+			outputFilename = boost::filesystem::path(outputDirName + "/" + basename + "_" + std::to_string(i) + ".nrrd").generic_string();
+
             std::cout << "Performing opetration " << op << " on image " << i << std::endl;
+
             if(file_exists(outputFilename)) {
                 std::cout << std::endl <<  outputFilename << " already exists, exiting " <<  std::endl;
                 continue;
             }
+
 			switch (op) {
 				case NOISE:
-					threads.push_back(std::thread(deform_noise, inputImage, outputFilename));
+                    queue.push(ImageJob(deform_noise, outputFilename.c_str()));
 				break;
 				case TPS:
-					threads.push_back(std::thread(deform_tps, inputImage, outputFilename));
+                    queue.push(ImageJob(deform_tps, outputFilename.c_str()));
 					break;
                 case ROTATE:
-                    threads.push_back(std::thread(deform_rotate, inputImage, outputFilename));
+                    queue.push(ImageJob(deform_rotate,outputFilename.c_str()));
                     break;
                 case SHEAR:
-                    threads.push_back(std::thread(deform_shear, inputImage, outputFilename));
+                    queue.push(ImageJob(deform_shear, outputFilename.c_str()));
                     break;
 			}
 		}
 
-		for (ThreadVector::iterator it = threads.begin(); it != threads.end(); ++it) {
-			/*
-			* A quick and dirty way of waiting for all threads to finish
-			* thread that hasn't started execution is "non-joinable" so if, for any reason, threads created in the
-			* previous loop don't start execution right away, the main thread will go through this loop blazing fast
-			* and exit the program killing all other threads.
-			*/
-			if ((*it).joinable()) {
-				(*it).join();
-			}
-		}
+        for (int i = 0; i != number_of_threads; ++i) {
+            workers.create_thread(process_entry);
+        }
 
+        workers.join_all();
 
 	} catch (itk::ExceptionObject &ex) {
         std::cout << ex << std::endl;

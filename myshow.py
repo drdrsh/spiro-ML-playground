@@ -6,19 +6,24 @@ import random
 from ipywidgets import interact, interactive
 from ipywidgets import widgets
 
-def random_tile(ds, grid_size=(10, 10)):
+def random_tile(ds, grid_size=(10, 10), slice_selection=.5):
 
+        
     arr = np.copy(ds.X)
     arr.shape = ds.original_X_shape
     entries = list(range(arr.shape[0]))
     random_indices = random.sample(entries, grid_size[0] * grid_size[1])
-
-    selected_slice = int(arr.shape[3] / 2)
+    # selected_slice = int(arr.shape[3] / 2)
     images = []
     for i in range(grid_size[0]):
         for j in range(grid_size[1]):
             counter = i * grid_size[0] + j
             idx = random_indices[counter]
+            
+            selected_slice = random.choice(range(arr.shape[3]-1))
+            if slice_selection is not 'random':
+                selected_slice = int(float(slice_selection) * arr.shape[3])
+            
             slc = arr[idx, selected_slice, :,:]
             img = sitk.GetImageFromArray(slc)
             images.append(img)
