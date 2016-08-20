@@ -30,13 +30,11 @@ def write_batch(X, Y, batch_number, np_path):
 def read_image(image_path, target_dim):
 
 	try:
-		image = sitk.ReadImage(image_path)
+		image = sitk.ReadImage(image_path, sitk.sitkFloat32)
 	except(RuntimeError):
 		return None
 
-	arr = pad_image(image, target_dim)
-
-	return arr
+	return pad_image(image, target_dim)
 
 
 def pad_image(image, target_dim):
@@ -46,8 +44,8 @@ def pad_image(image, target_dim):
 	trim_start_list = [0, 0, 0]
 	trim_end_list = [0, 0, 0]
 
+	# This will trim down a image to a target size by trimming two sides in the requested dimension
 	for i in range(len(size)):
-
 		to_trim = 0
 		if size[i] > target_dim[i]:
 			to_trim = size[i] - target_dim[i]
@@ -65,20 +63,14 @@ def pad_image(image, target_dim):
 
 	arr = sitk.GetArrayFromImage(image)
 
+	# This will zero-pad an image to meet a specific size
 	padding_map = []
 	for i in range(len(target_dim)):
 		padding_map.append( [0, max(0, target_dim[i] - arr.shape[i])] )
 
-	# TODO: Resample images that are larger after padding (images with z-spacing < 1.0)
-
 	x = np.pad(arr, padding_map, mode='constant', constant_values=0)
 
-	# Zero center and normalize data
-	#x = np.float32(x)
-	#x -= np.mean(x)
-	#x /= np.std(x)
-
-	return np.int16(x)
+	return np.float32(x)
 
 def stat_worker(q, rs, target_dim, std_printer):
 
@@ -103,11 +95,11 @@ def stat_worker(q, rs, target_dim, std_printer):
 
 def get_data_stats(input_path, out_dim):
 
-	global std_printer
+	global std_printer, Config
 	rs = RunningStat()
-	max_threads = 20
 
-	images = glob.glob(input_path + '/' + "*.nrrd")
+	images = glob.glob(input_path + "/*.nrrd")
+	max_threads = Config.get('max_process')
 
 	total_files = len(images)
 
@@ -118,7 +110,8 @@ def get_data_stats(input_path, out_dim):
 		'files_done_pct': 0
 	})
 
-	assert len(images) != 0
+	if len(images) == 0:
+		CLI.exit_error("No images found in {0}".format(input_path))
 
 	task_queue = Queue()
 	for image_path in images:
@@ -166,7 +159,8 @@ def process_path(input_path, output_path, labels_table, num_classes, out_dim, me
 	X = []
 	Y = []
 
-	assert len(images) != 0
+	if len(images) == 0:
+		CLI.exit_error("No images found in {0}".format(input_path))
 
 	for image_path in images:
 
@@ -183,7 +177,6 @@ def process_path(input_path, output_path, labels_table, num_classes, out_dim, me
 			continue
 
 		#Zero center and normalize data
-		arr  = np.float32(arr)
 		arr -= mean
 		arr /= math.sqrt(abs(var))
 		# arr  = np.int16(arr)
@@ -228,6 +221,7 @@ ref_dim = Config.get('reference_dimensions')
 segment_enabled = Config.get('segment_enabled')
 active_shrink_factor = Config.get('active_shrink_factor')
 batch_max_size = Config.get('batch_max_size')
+prefix = Config.get('prefix')
 
 output_dimensions = None
 try:
@@ -252,7 +246,7 @@ runs = {
 }
 
 mode = 1 if segment_enabled else 0
-input_path  = CLI.get_path('train' , runs['train'][mode],  active_shrink_factor)
+input_path  = CLI.get_path('train' , runs['train'][mode],  active_shrink_factor, prefix=prefix)
 mean, var = get_data_stats(input_path, out_dim)
 
 
@@ -263,10 +257,12 @@ for i in runs:
 	input_type = i
 
 	input_subtype = runs[i][mode]
-	input_path  = CLI.get_path(i , input_subtype,  active_shrink_factor)
-	output_path = CLI.get_path(i, input_subtype + '_np', active_shrink_factor)
+	input_path  = CLI.get_path(i , input_subtype,  active_shrink_factor, prefix=prefix)
+	output_path = CLI.get_path(i, input_subtype + '_np', active_shrink_factor, prefix=prefix)
+
 	try:
 		os.makedirs(output_path)
 	except FileExistsError:
 		pass
+
 	process_path(input_path, output_path, labels_table, num_classes, out_dim, mean, var)

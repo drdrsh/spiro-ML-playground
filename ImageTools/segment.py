@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-import os, sys, subprocess, time, glob, csv
+import os
+import sys
+import glob
 
 from APPIL_DNN.cli import CLI
 from APPIL_DNN.config import Config
@@ -11,12 +13,12 @@ if len(sys.argv) > 1:
 
 segment_enabled = Config.get('segment_enabled')
 active_shrink_factor = Config.get('active_shrink_factor')
-
+prefix = Config.get('prefix')
 
 output_subtype  = 'segmented' if segment_enabled  else 'raw'
-input_path  = CLI.get_path('train', 'original_raw', active_shrink_factor)
-output_path = CLI.get_path('train', 'original_seg',  active_shrink_factor)
-sym_output_path = CLI.get_path('train', output_subtype,  active_shrink_factor)
+input_path  = CLI.get_path('train', 'original_raw', active_shrink_factor, prefix=prefix)
+output_path = CLI.get_path('train', 'original_seg', active_shrink_factor, prefix=prefix)
+sym_output_path = CLI.get_path('train', output_subtype, active_shrink_factor, prefix=prefix)
 
 try:
 	os.makedirs(output_path)
@@ -25,7 +27,7 @@ except FileExistsError:
 	pass
 
 
-input_files = glob.glob(input_path + '/' + "*.nrrd")
+input_files = glob.glob(input_path + "/*.nrrd")
 
 file_count = Config.get('file_count')
 if file_count > 0 and len(input_files) > file_count:
@@ -43,7 +45,8 @@ if segment_enabled is not True:
 		try:
 			os.symlink(full_input_path, full_output_path)
 		except FileExistsError:
-			pass
+			os.unlink(full_input_path, full_output_path)
+			os.symlink(full_input_path, full_output_path)
 
 	print('Segmentation not enabled, creating symlinks and exiting')
 	sys.exit()
@@ -66,9 +69,15 @@ for file in input_files:
 
 	runner.enqueue(1, [exe_path , full_input_path, full_output_path])
 
-runner.run()
 
+try:
+	runner.run()
+except KeyboardInterrupt:
+	# Allow the user to stop segmentation but still create the symbolic links
+	# A double Ctrl+C can be used to abort without symlink creation
+	pass
 
+print("\nCreating Symlinks for segmented images!\n")
 # Create symbolic links
 for file in input_files:
 
@@ -79,6 +88,7 @@ for file in input_files:
 	try:
 		os.symlink(full_output_path, full_output_sym_path)
 	except FileExistsError:
-		pass
+		os.unlink(full_output_path, full_output_sym_path)
+		os.symlink(full_output_path, full_output_sym_path)
 
-print("\n")
+print("\nDone!\n")

@@ -3,7 +3,7 @@ import os, sys, subprocess, time, glob, csv, json
 
 class Config:
 
-	instance = None
+    instance = None
 
 	class __Config:
 		def __init__(self, filename=None):
@@ -25,7 +25,7 @@ class Config:
 			config.config = json.load(data_file)
 		return config
 
-
+    @staticmethod
 	def get_instance():
 		if Config.instance is None:
 			Config.instance = Config.__Config()

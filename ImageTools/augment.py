@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import numpy as np
-import os, sys, subprocess, time, glob, csv
+import os, sys, subprocess, time, glob
 
 import APPIL_DNN.data
 from APPIL_DNN.cli import CLI
@@ -16,12 +16,13 @@ max_count = Config.get('max_augment_count')
 
 segment_enabled = Config.get('segment_enabled')
 active_shrink_factor = Config.get('active_shrink_factor')
+prefix = Config.get('prefix')
 
 input_subtype  = 'segmented' if segment_enabled  else 'raw'
-input_path  = CLI.get_path('train', input_subtype,  active_shrink_factor)
+input_path  = CLI.get_path('train', input_subtype,  active_shrink_factor, prefix=prefix)
 
 output_subtype = 'segmented_augmented' if segment_enabled  else 'raw_augmented'
-output_path = CLI.get_path('train', output_subtype, active_shrink_factor)
+output_path = CLI.get_path('train', output_subtype, active_shrink_factor, prefix=prefix)
 
 try:
     os.makedirs(output_path)
@@ -31,7 +32,8 @@ except FileExistsError:
 
 num_examples, num_classes, labels_table = APPIL_DNN.data.get_labels()
 
-input_files = glob.glob(input_path + '/' + "*.nrrd")
+input_files = glob.glob(input_path + "/*.nrrd")
+
 file_count = Config.get('file_count')
 if file_count > 0 and len(input_files) > file_count:
 	input_files = input_files[0:file_count]
@@ -66,8 +68,10 @@ for file in input_files:
     # Augment this image taking into account class imabalnce
     count = int(counts[label])
 
-    exe_path = Config.get('bin_root') + '/ImageAugment'
+    exe_path = os.path.abspath(Config.get('bin_root') + '/ImageAugment')
 
     runner.enqueue(count, [exe_path, '--input', full_input_path, '--output', full_output_path, '--count', str(count)])
 
 runner.run()
+
+print("\nDone!\n")
