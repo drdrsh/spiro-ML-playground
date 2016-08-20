@@ -49,7 +49,7 @@ for i in range(grid_size[0]):
         images.append(sitk.GetImageFromArray(slc))
 
 tiled_image = sitk.Tile(images, grid_size, 128)
-#tiled_image = sitk.Cast(sitk.RescaleIntensity(tiled_image, 0, 2**16), sitk.sitkUInt32)
+# tiled_image = sitk.Cast(sitk.RescaleIntensity(tiled_image, 0, 2**16), sitk.sitkUInt32)
 tiled_image = sitk.Cast(sitk.RescaleIntensity(tiled_image, 0, 2**8), sitk.sitkUInt8)
 
 sitk.WriteImage(tiled_image, output_path)

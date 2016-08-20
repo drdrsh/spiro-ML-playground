@@ -13,7 +13,6 @@ class RunningStat:
 		self.ex = 0
 		self.ex2 = 0
 
-
 	def add_batch(self, x):
 
 		self.lock.acquire()
