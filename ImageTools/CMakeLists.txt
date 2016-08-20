@@ -7,9 +7,10 @@ configure_file( ${CMAKE_SOURCE_DIR}/segment.py  ${CMAKE_BINARY_DIR}/segment.py  
 configure_file( ${CMAKE_SOURCE_DIR}/numpyify.py ${CMAKE_BINARY_DIR}/numpyify.py COPYONLY)
 configure_file( ${CMAKE_SOURCE_DIR}/augment.py  ${CMAKE_BINARY_DIR}/augment.py  COPYONLY)
 configure_file( ${CMAKE_SOURCE_DIR}/testset.py  ${CMAKE_BINARY_DIR}/testset.py  COPYONLY)
+configure_file( ${CMAKE_SOURCE_DIR}/preview.py  ${CMAKE_BINARY_DIR}/testset.py  COPYONLY)
 
 install(
-    FILES convert.py segment.py numpyify.py testset.py augment.py
+    FILES convert.py segment.py numpyify.py testset.py augment.py preview.py
     PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
     DESTINATION ${CMAKE_BINARY_DIR}
 )
