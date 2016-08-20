@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 
-import SimpleITK as sitk
-import numpy as np
 import glob
-import sys
-import random
 import math
+import random
+import sys
+
+import SimpleITK as sitk
 from queue import *
 
-from APPIL_DNN.data import *
 from APPIL_DNN.basic_cli import BasicCLI
 from APPIL_DNN.cli import CLI
+from APPIL_DNN.data import *
 
 std_printer = BasicCLI()
 

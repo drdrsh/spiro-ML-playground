@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
-import numpy as np
+import glob
 import os
 import sys
-import glob
+
+import numpy as np
 
 import APPIL_DNN.data
 from APPIL_DNN.cli import CLI

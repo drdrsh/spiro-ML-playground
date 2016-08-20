@@ -1,21 +1,17 @@
 #!/usr/bin/env python3
 
-import numpy as np
-import os, sys, subprocess, time, glob, csv, argparse
+import argparse
+import os
 
-import APPIL_DNN.data
-from APPIL_DNN.cli import CLI
 from APPIL_DNN.config import Config
 from APPIL_DNN.process_runner import ProcessRunner
 
-
 parser = argparse.ArgumentParser(description='Convert DICOM Series into nrrd files.')
-parser.add_argument('--config',type=str, default='config.json', help='Path to config file')
+parser.add_argument('--config', type=str, default='config.json', help='Path to config file')
 parser.add_argument('input', type=str, help='Path to DICOM series directory')
 parser.add_argument('output', type=str, help='Path to NRRD output directory')
 parser.add_argument('factors', type=int, nargs='+', help='List of shrink factors to generate')
 args = parser.parse_args()
-
 
 Config.load(args.config)
 
@@ -53,7 +49,6 @@ try:
 except:
     pass
 
-
 for file in files_to_do:
 
     basename = os.path.basename(file)
@@ -67,7 +62,7 @@ for file in files_to_do:
 
     params = [
         exe_path,
-        '--dicom',  full_input_path ,
+        '--dicom', full_input_path,
         '--output', full_output_path
     ]
 
