@@ -11,6 +11,8 @@ import argparse
 import tempfile
 from PIL import Image
 
+from APPIL_DNN.cli import CLI
+
 temp_filename = os.path.abspath(tempfile.gettempdir() + '/' + 'preview_temp.jpg')
 
 parser = argparse.ArgumentParser(description='Preview images from a given directory.')
@@ -26,7 +28,7 @@ grid_size = args.size.split('x')
 assert len(grid_size) == 2
 grid_size = (int(grid_size[0]), int(grid_size[1]))
 
-input_files = glob.glob(input_path + '/' + "*.nrrd")
+input_files = glob.glob(input_path + "/*.nrrd")
 random.shuffle(input_files)
 
 images = []
@@ -38,8 +40,10 @@ for i in range(grid_size[0]):
             try:
                 image = sitk.ReadImage(input_files[counter], sitk.sitkFloat32)
                 is_error = False
-            except:
+            except RuntimeError:
                 counter += 1
+                if counter >= len(input_files):
+                    CLI.exit_error("Not enough valid images to create a {0}x{1} grid".format(*grid_size))
                 is_error = True
 
         image_size = image.GetSize()
