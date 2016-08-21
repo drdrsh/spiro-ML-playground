@@ -5,11 +5,28 @@
 	"test_set_size": 12,
 	"max_process"  : 8,
 	"segment_enabled": true,
-	"min_augment_count": 50,
-	"max_augment_count": 100,
 	"active_shrink_factor": 7,
 	"file_count": 50,
     "output_dimensions": [85, 85, 85],
 	"reference_dimensions": [630, 512, 512],
-	"batch_max_size": 209715200
+	"batch_max_size": 209715200,
+    "augmentation" : {
+		"min_count": 10,
+		"max_count": 20,
+		"operation_prob" : {
+			"tps" : 0.5,
+			"rotate": 0.5,
+			"shear" : 0.0,
+			"noise" : 0.0
+		},
+		"operation_params" : {
+			"tps-count" : 200,
+			"tps-factor": 0.15,
+			"rotate-min-deg" : 0.0,
+			"rotate-max-deg" : 5.0,
+			"shear-min-fac" : 0.1,
+			"shear-max-fac" : 0.3,
+			"noise-std" : 100.0
+		}
+	}
 }

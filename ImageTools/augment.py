@@ -14,8 +14,8 @@ from APPIL_DNN.process_runner import ProcessRunner
 if len(sys.argv) > 1:
     Config.load(sys.argv[1])
 
-min_count = Config.get('min_augment_count')
-max_count = Config.get('max_augment_count')
+min_count = Config.get('augmentation.min_count')
+max_count = Config.get('augmentation.max_count')
 
 segment_enabled = Config.get('segment_enabled')
 active_shrink_factor = Config.get('active_shrink_factor')
@@ -76,12 +76,26 @@ for input_file in input_files:
     count = int(counts[label])
 
     exe_path = os.path.abspath(Config.get('bin_root') + '/ImageAugment')
+    params = [exe_path,
+              '--input', full_input_path,
+              '--output', full_output_path,
+              '--count', str(count),
+              '--thread', '2']
 
-    runner.enqueue(count, [exe_path,
-                           '--input', full_input_path,
-                           '--output', full_output_path,
-                           '--count', str(count),
-                           '--thread', '2'])
+    op_params = Config.get('augmentation.operation_params')
+    op_prob = Config.get('augmentation.operation_prob')
+
+    for k in op_params:
+        v = op_params[k]
+        params.append("--" + k)
+        params.append(str(v))
+
+    for k in op_prob:
+        v = op_prob[k]
+        params.append("--" + k + "-prob")
+        params.append(str(v))
+
+    runner.enqueue(count, params)
 
 runner.run()
 

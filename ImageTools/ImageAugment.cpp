@@ -1,4 +1,5 @@
 
+#include <fstream>
 #include <vector>
 #include <thread>
 #include <iostream>
@@ -27,6 +28,8 @@
 #include <boost/thread/thread.hpp>
 #include <boost/lockfree/queue.hpp>
 
+#include <mutex>
+
 typedef signed short    PixelType;
 typedef   double        CoordinateRepType;
 
@@ -50,10 +53,20 @@ typedef   itk::Point< CoordinateRepType, Dimension>        PointType;
 typedef   TPSTransformType::PointSetType				   PointSetType;
 typedef   PointSetType::PointIdentifier                    PointIdType;
 
-typedef void(*OperationFunction)(ImageType::Pointer, std::string);
+typedef void(*OperationFunction)(ImageType::Pointer, std::string, std::vector<float>);
 
 typedef std::vector<int> IntVector;
 typedef std::vector<std::thread> ThreadVector;
+
+std::mutex log_mutex;
+std::mutex cout_mutex;
+
+std::ofstream log_file;
+
+//Thread-safe logging macro to allow simple std::cout style logging
+#define LOG_LINE(X) log_mutex.lock();  log_file << X << std::endl;   log_mutex.unlock();
+
+#define COUT_LINE(X) cout_mutex.lock();  std::cout << X << std::endl;   cout_mutex.unlock();
 
 
 ImageType::Pointer globalInputImage;
@@ -63,26 +76,38 @@ class ImageJob {
 public:
     char outputFilename[2048];
     OperationFunction operation;
+	float params[20];
 
     ImageJob() {}
 
     ImageJob(const ImageJob& rhs) {
-        strcpy(outputFilename, rhs.outputFilename);
+        strncpy(outputFilename, rhs.outputFilename, 2048);
+		memcpy(params, rhs.params, 20 * sizeof(float));
         operation = rhs.operation;
     }
 
 
-    ImageJob( OperationFunction p, std::string o) {
+    ImageJob( OperationFunction p, std::string o, std::vector<float> f) {
         operation = p;
-        o.copy(outputFilename, 2048, 0);
+		std::size_t length = o.copy(outputFilename, 2048, 0);
+		outputFilename[length] = '\0';
+		unsigned int it_max = 20;
+		if (f.size() < it_max) {
+			it_max = f.size();
+		}
+		for (unsigned int i = 0; i < it_max; ++i) {
+			params[i] = f[i];
+		}
     }
 };
 
 boost::lockfree::queue<ImageJob> queue(128);
 
 bool file_exists(std::string filename) {
-    return boost::filesystem::exists(filename) && boost::filesystem::file_size(filename) != 0;
+
+	return boost::filesystem::exists(filename) && boost::filesystem::file_size(filename) != 0;
 }
+
 
 ImageType::Pointer duplicate_image(ImageType::Pointer inputImage) {
     typedef itk::ImageDuplicator< ImageType > DuplicatorType;
@@ -97,7 +122,7 @@ void save_image(ImageType::Pointer image, std::string outputFilename) {
 	writer->SetFileName(outputFilename);
 	writer->UseCompressionOn();
 	writer->SetInput(image);
-	std::cout << std::endl << "Writing: " << outputFilename << std::endl;
+	COUT_LINE("Writing: " << outputFilename);
 	writer->Update();
 }
 
@@ -148,10 +173,10 @@ ResampleImageFilterType::Pointer get_default_resampler(ImageType::Pointer inputI
 
 }
 
-void deform_shear(ImageType::Pointer inputImage, std::string outputFilename) {
+void deform_shear(ImageType::Pointer inputImage, std::string outputFilename, std::vector<float> params) {
 
-    float low_end  = .1f;
-    float high_end = .3f;
+    float low_end  = params[0];
+    float high_end = params[1];
 
     boost::random::mt19937 rng(time(0));
 
@@ -175,6 +200,8 @@ void deform_shear(ImageType::Pointer inputImage, std::string outputFilename) {
             axis2 = 0;
             break;
     }
+
+	LOG_LINE("Performing Shear with coeff " << coeff << " on axes " << axis1 << ", " << axis2);
 
     AffineTransformType::Pointer transform = AffineTransformType::New();
     /*
@@ -211,22 +238,25 @@ void deform_shear(ImageType::Pointer inputImage, std::string outputFilename) {
 
 }
 
-void deform_rotate(ImageType::Pointer inputImage, std::string outputFilename) {
+void deform_rotate(ImageType::Pointer inputImage, std::string outputFilename, std::vector<float> params) {
 
+	float min_deg = params[0];
+	float max_deg = params[1];
 
-	float degRange = 5.0f;
 	boost::random::mt19937 rng(time(0));
 	boost::random::uniform_int_distribution<> idd(-500, 500);
 
     float x = (float)idd(rng);
     float y = (float)idd(rng);
     float z = (float)idd(rng);
-
+	float range_deg = max_deg - min_deg;
 	float angles[3] = {
-		degRange * (x / 500.0f),
-		degRange * (y / 500.0f),
-		degRange * (z / 500.0f)
+		min_deg + range_deg * (x / 500.0f),
+		min_deg + range_deg * (y / 500.0f),
+		min_deg + range_deg * (z / 500.0f)
 	};
+
+	LOG_LINE("Performing Rotation with angles " << angles[0] << ", " << angles[1] << ", " << angles[2]);
 
 	AffineTransformType::Pointer transform = AffineTransformType::New();
 
@@ -266,10 +296,12 @@ void deform_rotate(ImageType::Pointer inputImage, std::string outputFilename) {
 
 }
 
-void deform_noise(ImageType::Pointer inputImage, std::string outputFilename) {
+void deform_noise(ImageType::Pointer inputImage, std::string outputFilename, std::vector<float> params) {
 
-    float std = 100.0f;
+	float std = params[0];
 	NoiseFilterType::Pointer filter = NoiseFilterType::New();
+
+	LOG_LINE("Performing Noise with params " << params[0]);
 
 	filter->SetStandardDeviation(std);
 	filter->SetInput(inputImage);
@@ -279,12 +311,12 @@ void deform_noise(ImageType::Pointer inputImage, std::string outputFilename) {
 }
 
 
-void deform_histogram(ImageType::Pointer inputImage, std::string outputFilename) {
+void deform_histogram(ImageType::Pointer inputImage, std::string outputFilenam, std::vector<float> paramse) {
 
 }
 
 
-void deform_tps(ImageType::Pointer inputImage, std::string outputFilename) {
+void deform_tps(ImageType::Pointer inputImage, std::string outputFilename, std::vector<float> params) {
 
 
 
@@ -292,11 +324,12 @@ void deform_tps(ImageType::Pointer inputImage, std::string outputFilename) {
 	boost::random::uniform_int_distribution<> iid(-100, 100);
 
     float rnd = (float)iid(rng);
-	float deform_factor = 0.1f * (rnd / 100.0f);
-	unsigned int deform_landmarks = 200;
+	unsigned int deform_landmarks = (unsigned int)params[0];
+	float deform_factor = params[1] * (rnd / 100.0f);
+
+	LOG_LINE("Performing TPS with params " << params[0] << ", " << deform_factor);
 
     ImageType::SizeType imageSize = inputImage->GetLargestPossibleRegion().GetSize();
-
 
     PointSetType::Pointer sourceLandMarks = PointSetType::New();
 	PointSetType::Pointer targetLandMarks = PointSetType::New();
@@ -359,7 +392,8 @@ void process_entry(void) {
 
     while(queue.pop(job)) {
         std::string o = job.outputFilename;
-        job.operation(globalInputImage, o);
+		std::vector<float> p(std::begin(job.params), std::end(job.params));
+        job.operation(globalInputImage, o, p);
     }
 
 }
@@ -374,7 +408,18 @@ int main(int argc, const char* argv[]) {
 			("input,i", po::value<std::string>()->default_value(""), "Input filename.")
             ("output,o", po::value<std::string>()->default_value(""), "Output directory.")
             ("count,c", po::value<unsigned int>()->default_value(50), "Number of augmentation for the image.")
-            ("threads,t", po::value<unsigned int>()->default_value(8), "Number of threads to use.");
+            ("threads,t", po::value<unsigned int>()->default_value(8), "Number of threads to use.")
+            ("tps-count,a", po::value<unsigned int>()->default_value(200), "Thin plate spline point count.")
+            ("tps-factor,b", po::value<float>()->default_value(0.1f), "Thin plate spline deform factor.")
+            ("tps-prob,T", po::value<float>()->default_value(0.5f), "Percent of TPS deformation in output images.")
+            ("rotate-min-deg,d", po::value<float>()->default_value(0.0f), "Minimum rotation angle in degrees.")
+            ("rotate-max-deg,e", po::value<float>()->default_value(5.0f), "Maximum rotation angle in degrees.")
+            ("rotate-prob,R", po::value<float>()->default_value(0.5f), "Percent of rotated images in output images")
+            ("shear-min-fac,f", po::value<float>()->default_value(0.1f), "Minimum shear factor.")
+            ("shear-max-fac,g", po::value<float>()->default_value(0.3f), "Maximum shear factor.")
+            ("shear-prob,S", po::value<float>()->default_value(0.0f), "Percent of sheared images in output images.")
+            ("noise-std,j", po::value<float>()->default_value(100.0f), "Standard deviation for gaussian noise.")
+            ("noise-prob,N", po::value<float>()->default_value(0.0f), "Percent of gaussian noise in output images.");
 
 		boost::program_options::variables_map vm;
 		boost::program_options::store(po::parse_command_line(argc, argv, desc), vm);
@@ -397,10 +442,66 @@ int main(int argc, const char* argv[]) {
 
 
 
-        const std::string inputFilename = vm["input"].as<std::string>();
-        const std::string outputDirName = vm["output"].as<std::string>();
-        const unsigned int augment_count = vm["count"].as<unsigned int>();
-        const unsigned int number_of_threads = vm["threads"].as<unsigned int>();
+		
+
+        std::string inputFilename = vm["input"].as<std::string>();
+        std::string outputDirName = vm["output"].as<std::string>();
+        unsigned int augment_count = vm["count"].as<unsigned int>();
+        unsigned int number_of_threads = vm["threads"].as<unsigned int>();
+		unsigned int tps_count = vm["tps-count"].as<unsigned int>();
+		float tps_factor = vm["tps-factor"].as<float>();
+		float tps_prob = vm["tps-prob"].as<float>();
+		float rot_min_deg = vm["rotate-min-deg"].as<float>();
+		float rot_max_deg = vm["rotate-max-deg"].as<float>();
+		float rot_prob = vm["rotate-prob"].as<float>();
+		float shear_min_fac = vm["shear-min-fac"].as<float>();
+		float shear_max_fac = vm["shear-min-fac"].as<float>();
+		float shear_prob = vm["shear-prob"].as<float>();
+		float noise_std = vm["noise-std"].as<float>();
+		float noise_prob = vm["noise-prob"].as<float>();
+
+
+		float prob_max = noise_prob + shear_prob + tps_prob + rot_prob;
+		noise_prob /= prob_max;
+		shear_prob /= prob_max;
+		tps_prob /= prob_max;
+		rot_prob /= prob_max;
+
+		if (number_of_threads <= 0) {
+			std::cerr << "Invalid number of threads." << std::endl;
+			return EXIT_FAILURE;
+		}
+
+		if (augment_count <= 0) {
+			std::cerr << "Invalid number of replications." << std::endl;
+			return EXIT_FAILURE;
+		}
+
+		if (prob_max <= 0) {
+			std::cerr << "Invalid filter probability values." << std::endl;
+			return EXIT_FAILURE;
+		}
+
+		if (shear_min_fac > shear_max_fac) {
+			std::cerr << "Shear minimum factor has to be less than or equal to shear maximum factor." << std::endl;
+			return EXIT_FAILURE;
+		}
+
+		if (rot_min_deg > rot_max_deg) {
+			std::cerr << "Minimum rotation degrees has to be less than or equal to maximum rotation degrees." << std::endl;
+			return EXIT_FAILURE;
+		}
+
+		if (noise_std < 0) {
+			std::cerr << "Noise standard deviation cannot be less than 0." << std::endl;
+			return EXIT_FAILURE;
+		}
+
+		if (tps_count <= 0) {
+			std::cerr << "Thin plate spline point count has to be an integer greater than 0." << std::endl;
+			return EXIT_FAILURE;
+		}
+
 
 		ReaderType::Pointer reader = ReaderType::New();
 		reader->SetFileName(inputFilename);
@@ -414,18 +515,26 @@ int main(int argc, const char* argv[]) {
 
 		boost::random::mt19937 rng(time(0));
 
-        double op_prob[] = {0.0, 0.5, 0.5, 0.0};
+		std::vector<std::string> op_names;
+		op_names.push_back("Noise");
+		op_names.push_back("Thin plate spline deformation");
+		op_names.push_back("Rotate");
+		op_names.push_back("Shear");
+
+        double op_prob[] = {noise_prob, tps_prob, rot_prob, shear_prob};
         boost::random::discrete_distribution<unsigned int> operationDice(op_prob);
 		enum operation {NOISE, TPS, ROTATE, SHEAR};
 
-        std::string outputFilename = boost::filesystem::path(outputDirName + "/" + basename + "_" + std::to_string(0) + ".nrrd").generic_string();
-
+		std::string outputFilename = boost::filesystem::path(outputDirName + "/" + basename + "_" + std::to_string(0) + ".nrrd").generic_string();
+		std::string log_filename = boost::filesystem::path(outputDirName + "/" + basename + ".log").generic_string();
+		log_file = std::ofstream(log_filename, std::ios_base::out | std::ios_base::trunc);
 
         WriterType::Pointer writer = WriterType::New();
         writer->SetFileName(outputFilename);
         writer->UseCompressionOn();
         writer->SetInput(inputImage);
-        std::cout << std::endl << "Writing: " << outputFilename << std::endl;
+		LOG_LINE("Will be writing " << augment_count << " replicas for this file");
+        std::cout << "Writing unmodified image: " << outputFilename << std::endl;
         writer->Update();
         boost::thread_group workers;
         for (unsigned int i = 1; i < augment_count; i++) {
@@ -433,25 +542,32 @@ int main(int argc, const char* argv[]) {
 			int op = operationDice(rng);
 			outputFilename = boost::filesystem::path(outputDirName + "/" + basename + "_" + std::to_string(i) + ".nrrd").generic_string();
 
-            std::cout << "Performing opetration " << op << " on image " << i << std::endl;
+			std::cout << "Performing opetration " << op_names[op] << " on image " << i << std::endl;
 
             if(file_exists(outputFilename)) {
                 std::cout << std::endl <<  outputFilename << " already exists, exiting " <<  std::endl;
                 continue;
             }
-
+			std::vector<float> params;
 			switch (op) {
 				case NOISE:
-                    queue.push(ImageJob(deform_noise, outputFilename.c_str()));
+					params.push_back(noise_std);
+                    queue.push(ImageJob(deform_noise, outputFilename.c_str(), params));
 				break;
 				case TPS:
-                    queue.push(ImageJob(deform_tps, outputFilename.c_str()));
+					params.push_back((float)tps_count);
+					params.push_back(tps_factor);
+					queue.push(ImageJob(deform_tps, outputFilename.c_str(), params));
 					break;
                 case ROTATE:
-                    queue.push(ImageJob(deform_rotate,outputFilename.c_str()));
+					params.push_back(rot_min_deg);
+					params.push_back(rot_max_deg);
+					queue.push(ImageJob(deform_rotate,outputFilename.c_str(), params));
                     break;
                 case SHEAR:
-                    queue.push(ImageJob(deform_shear, outputFilename.c_str()));
+					params.push_back(shear_min_fac);
+					params.push_back(shear_max_fac);
+					queue.push(ImageJob(deform_shear, outputFilename.c_str(), params));
                     break;
 			}
 		}
