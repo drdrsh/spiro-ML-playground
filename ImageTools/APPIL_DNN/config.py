@@ -19,6 +19,9 @@ class Config:
         def get(self, key):
             return self.config[key]
 
+        def get_all(self):
+            return self.config
+
     @staticmethod
     def load(filename):
         config = Config.get_instance()
@@ -36,7 +39,15 @@ class Config:
     def get(k, default=None):
         config = Config.get_instance()
         try:
-            config.get(k)
+            key_list = [k]
+            if '.' in k:
+                key_list = k.split('.')
+            cur_object = config.get_all()
+
+            while len(key_list):
+                cur_object = cur_object[key_list.pop(0)]
+
+            return cur_object
         except KeyError:
             if default is not None:
                 return default
