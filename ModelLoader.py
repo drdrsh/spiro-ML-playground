@@ -1,7 +1,8 @@
 import numpy as np
 import tensorflow as tf
 import json
-
+import os
+import sys
 
 '''
 # Number of neurons = Output Volume Size 
@@ -50,10 +51,16 @@ biases = {
 class ModelLoader:
     
     def __init__(self, path):
-        
-        with open(path) as model_file:
+
+        basename = os.path.basename(os.path.normpath(path))
+        json_path = os.path.abspath(path + '/config.json')
+
+        with open(json_path) as model_file:
             self.config = json.load(model_file)
-        
+
+        self.path = path
+        self.config['id'] = basename
+
         current_output_shape = np.array(self.config['data_shape'])
         filter_size = self.config['params']['wc1']['filter_size']
         filter_count= self.config['params']['wc1']['filter_count']
@@ -124,4 +131,11 @@ class ModelLoader:
     def get_config(self, key):
         return self.config[key]
         
-                
+    def get_log_path(self, log_type, suffix):
+        return os.path.abspath(self.path + '/logs/' + log_type + '/' + suffix + '/')
+
+    def get_model_filename(self, suffix):
+        d = os.path.abspath(self.path + '/models/' + suffix + '.ckpt')
+        os.makedirs(d, exist_ok=True)
+        return d
+

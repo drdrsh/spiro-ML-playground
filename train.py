@@ -7,14 +7,16 @@ if len(sys.argv) != 2:
 	sys.exit(1)
 
 
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
 import Dataset
 from convnet import *
 from ModelLoader import ModelLoader
 
 
 model = ModelLoader(sys.argv[1])
+
+
 
 data_manager = Dataset.DatasetManager(
     train=model.get_config('train_data_path'),
@@ -73,8 +75,8 @@ merged = tf.merge_all_summaries()
 
 str_now = datetime.datetime.now().strftime("%d-%m-%Y#%H_%M_%S")
 
-train_writer = tf.train.SummaryWriter('logs/train/' + '/' + model.get_config('id') +  str_now, sess.graph)
-test_writer  = tf.train.SummaryWriter('logs/test/'  + '/' + model.get_config('id') +  str_now, sess.graph)
+train_writer = tf.train.SummaryWriter(model.get_log_path('train', str_now), sess.graph)
+test_writer  = tf.train.SummaryWriter(model.get_log_path('test', str_now), sess.graph)
 
 init = tf.initialize_all_variables()
 sess.run(init)
@@ -88,7 +90,7 @@ step = 1
 
 with sess:
     
-    test_batch_x, test_batch_y = test_dataset.next_batch(4)
+    test_batch_x, test_batch_y = test_dataset.next_batch(batch_size)
     test_dict = {
         x: test_batch_x,
         y: test_batch_y,
@@ -126,8 +128,8 @@ with sess:
         step += 1
         
     saver = tf.train.Saver()
-    save_path = saver.save(sess, "/tmp/model.ckpt")
-    print("Model saved in file: %s" % save_path)
+    save_path = saver.save(sess, model.get_model_filename(str_now))
+    print("Model saved in file: {0}".format(save_path))
 
     print("Optimization Finished!")
 
