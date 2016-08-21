@@ -1,32 +1,32 @@
 {
-	"prefix"	: "",
-	"bin_root"	: "",
-	"data_root"    : "",
-	"test_set_size": 12,
-	"max_process"  : 8,
-	"segment_enabled": true,
-	"active_shrink_factor": 7,
-	"file_count": 50,
-    "output_dimensions": [85, 85, 85],
-	"reference_dimensions": [630, 512, 512],
-	"batch_max_size": 209715200,
+	"prefix"	: "this will be used as a directory name to store dataset under",
+	"bin_root"	: "path to ImageAugment, LungSegment binaries",
+	"data_root"    : "path to the root data path, this should contain raw_original folder containing nrrd files",
+	"test_set_size": "(int) test set size, should be divisible by the number of classes as the script will attempt to make it balanced",
+	"max_process"  : "(int) number of simultaneous executable to run at the same time, should match the number of cores you have",
+	"segment_enabled": "(boolean) whether or not to do segmentation on raw files",
+	"active_shrink_factor": "(int) the factor by which the images were shrunken from the reference dimension",
+	"file_count": "(int) The number of files to process, -1 for the full dataset ",
+    "output_dimensions": "(array of ints) The size of the output image, padding and trimming will be performed as neccessary, no downsampleing"
+    "reference_dimensions": "(array of ints) The size of the original dicom that was downsampled",
+	"batch_max_size": "(int) Size of output numpy files, this is not the number of bytes per GPU batch",
     "augmentation" : {
-		"min_count": 10,
-		"max_count": 20,
+		"min_count": "(int) minimum number of augmentation runs per image",
+		"max_count": "(int) maximum number of augmentation runs per image",
 		"operation_prob" : {
-			"tps" : 0.5,
-			"rotate": 0.5,
-			"shear" : 0.0,
-			"noise" : 0.0
+			"tps" : "(float)  Percent of TPS deformation in output images.",
+			"rotate": "(float) Percent of rotated images in output images.",
+			"shear" : "(float) Percent of sheared images in output images.,
+			"noise" :"(float) Percent of gaussian noise in output images."
 		},
 		"operation_params" : {
-			"tps-count" : 200,
-			"tps-factor": 0.15,
-			"rotate-min-deg" : 0.0,
-			"rotate-max-deg" : 5.0,
-			"shear-min-fac" : 0.1,
-			"shear-max-fac" : 0.3,
-			"noise-std" : 100.0
+			"tps-count" : "(int) Thin plate spline point count.",
+			"tps-factor": "(float) Thin plate spline deform factor.",
+			"rotate-min-deg" : "(float) Minimum rotation angle in degrees."
+			"rotate-max-deg" : "(float) Maximum rotation angle in degrees."
+			"shear-min-fac" : "(float) Minimum shear factor.",
+			"shear-max-fac" : "(float) Maximum shear factor.",
+			"noise-std" : "(float) Standard deviation for gaussian noise."
 		}
 	}
 }
