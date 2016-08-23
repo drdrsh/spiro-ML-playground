@@ -51,9 +51,9 @@ for input_file in input_files:
     dist.append(label)
 
 # This will decide how many replicas are created for each file based on its class so that we can acheive class balance
-dist= np.array(dist)
+dist = np.array(dist)
 bin = np.bincount(dist)
-flip = np.abs( (bin / np.sum(bin)) - 1.0 )
+flip = np.abs((bin / np.sum(bin)) - 1.0)
 additional = max_count - min_count
 counts = np.ceil(additional * flip) + min_count
 
