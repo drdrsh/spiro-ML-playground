@@ -150,7 +150,6 @@ def process_path(input_path, output_path, labels_table, num_classes, out_dim, me
 
     cum_batch_size = 0
     batch_number = 0
-    cls = list(0 for p in range(num_classes))
     X = []
     Y = []
 
@@ -159,6 +158,7 @@ def process_path(input_path, output_path, labels_table, num_classes, out_dim, me
 
     for image_path in images:
 
+        cls = list(0 for p in range(num_classes))
         # print("Processing subject {0})".format(record_id))
         record_id = ((os.path.splitext(os.path.basename(image_path))[0]).split('_'))[0]
         label = labels_table[record_id]
