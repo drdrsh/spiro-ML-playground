@@ -1,0 +1,14 @@
+{
+	"bin_root"     : "/home/mostafa/SummerProject/ImageTools/bin/",
+	"data_root"    : "/home/mostafa/BigSpiroData/",
+	"test_set_size": 6,
+	"max_process"  : 16,
+	"segment_enabled": true,
+	"min_augment_count": 20,
+	"max_augment_count": 40,
+	"active_shrink_factor": 10,
+	"file_count": -1,
+	"reference_dimensions": [630, 512, 512],
+	"output_dimensions": [48, 48, 48],
+	"batch_max_size": 209715200
+}

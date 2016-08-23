@@ -1,0 +1,12 @@
+{
+	"bin_root"	   : "/home/mostafa/SummerProject/ImageTools/bin/",
+	"data_root"    : "/home/mostafa/SummerProject/DummyData/",
+	"test_set_size": 2,
+	"max_process"  : 16,
+	"segment_enabled": true,
+	"min_augment_count": 5,
+	"max_augment_count": 10,
+	"active_shrink_factor": 6,
+	"reference_dimensions": [630, 512, 512],
+	"batch_max_size": 209715200
+}
