@@ -68,12 +68,12 @@ int main(int argc, const char* argv[]) {
 		itk::ImageRegionIterator<ImageType> it(image, image->GetLargestPossibleRegion());
 		for (it = it.Begin(); !it.IsAtEnd(); ++it) {
 			ImageType::IndexType idx = it.GetIndex();
-			if (idx[0] % gridSize == 0 && idx[1] % gridSize == 0 /*&& idx[2] % gridSize == 0*/) {
+			if (idx[0] % gridSize == 0 || idx[1] % gridSize == 0 || idx[2] % gridSize == 0) {
 				it.Set(1);
 			}
 		}
    
-		std::string outputFilename = "grid.nrrd";
+		std::string outputFilename = "/home/mostafa/grid.nrrd";
 		WriterType::Pointer writer = WriterType::New();
 		writer->SetFileName(outputFilename);
 		writer->UseCompressionOn();
