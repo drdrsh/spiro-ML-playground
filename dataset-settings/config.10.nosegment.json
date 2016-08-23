@@ -1,0 +1,32 @@
+{
+	"prefix"	: "noseg_10",
+	"bin_root"	: "/home/mostafa/SummerProject/ImageTools/bin/",
+	"data_root"     : "/home/mostafa/BigSpiroData/",
+	"test_set_size" : 12,
+	"max_process"   : 8,
+	"segment_enabled": false,
+	"active_shrink_factor": 10,
+	"file_count": -1,
+	"output_dimensions": [48, 48, 48],
+	"reference_dimensions": [630, 512, 512],
+	"batch_max_size": 209715200,
+	"augmentation" : {
+		"min_count": 60,
+		"max_count": 100,
+		"operation_prob" : {
+			"tps"   : 0.3,
+			"rotate": 0.3,
+			"shear" : 0.3,
+			"noise" : 0.3
+		},
+		"operation_params" : {
+			"tps-count" : 200,
+			"tps-factor": 0.1,
+			"rotate-min-deg" : 5.0,
+			"rotate-max-deg" : 10.0,
+			"shear-min-fac"  : 0.1,
+			"shear-max-fac"  : 0.3,
+			"noise-std" 	 : 100.0
+		}
+	}
+}
