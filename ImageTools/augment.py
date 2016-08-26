@@ -6,10 +6,11 @@ import sys
 
 import numpy as np
 
-import APPIL_DNN.data
-from APPIL_DNN.cli import CLI
+from APPIL_DNN.path_helper import PathHelper
+from APPIL_DNN.image_path_helper import ImagePathHelper
 from APPIL_DNN.config import Config
 from APPIL_DNN.process_runner import ProcessRunner
+from APPIL_DNN.data_helper import DataHelper
 
 if len(sys.argv) > 1:
     Config.load(sys.argv[1])
@@ -19,28 +20,16 @@ max_count = Config.get('augmentation.max_count')
 
 segment_enabled = Config.get('segment_enabled')
 active_shrink_factor = Config.get('active_shrink_factor')
-prefix = Config.get('prefix')
+dataset_name = Config.get('prefix')
 
-input_subtype = 'segmented' if segment_enabled  else 'raw'
-input_path = CLI.get_path('train', input_subtype,  active_shrink_factor, prefix=prefix)
+input_path = PathHelper.get_dataset_path(dataset_name, 'train', 'src')
+output_path = PathHelper.get_dataset_path(dataset_name, 'train', 'nrrd')
 
-output_subtype = 'segmented_augmented' if segment_enabled else 'raw_augmented'
-output_path = CLI.get_path('train', output_subtype, active_shrink_factor, prefix=prefix)
+os.makedirs(output_path, exist_ok=True)
 
-try:
-    os.makedirs(output_path)
-except FileExistsError:
-    pass
+num_examples, num_classes, labels_table = DataHelper.get_labels()
 
-
-num_examples, num_classes, labels_table = APPIL_DNN.data.get_labels()
-
-input_files = glob.glob(input_path + "/*.nrrd")
-
-file_count = Config.get('file_count')
-if 0 < file_count < len(input_files):
-    input_files = input_files[0:file_count]
-
+input_files = PathHelper.glob(input_path + "/*.nrrd")
 
 # Pre run over the data to estimate class imbalance
 dist = []
@@ -52,14 +41,14 @@ for input_file in input_files:
 
 # This will decide how many replicas are created for each file based on its class so that we can acheive class balance
 dist = np.array(dist)
-bin = np.bincount(dist)
-flip = np.abs((bin / np.sum(bin)) - 1.0)
+bins = np.bincount(dist)
+flip = np.abs((bins / np.sum(bins)) - 1.0)
 additional = max_count - min_count
-counts = np.ceil(additional * flip) + min_count
+counts = np.int16(np.ceil(additional * flip) + min_count)
 
-thread_count = Config.get('max_process') / 2
+thread_count = int(Config.get('max_process') / 2)
 runner = ProcessRunner(
-    'Performing image augmentation, {0} out of {1} files processed ({2:.2f}%)\r',
+    'Performing image augmentation, {files_done} out of {total_files} files processed ({files_done_pct:.2f}%)\r',
     max_process=thread_count
 )
 
@@ -97,6 +86,6 @@ for input_file in input_files:
 
     runner.enqueue(count, params)
 
-runner.run()
+runner.start()
 
 print("\nDone!\n")

@@ -13,7 +13,7 @@ from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
 
-from APPIL_DNN.cli import CLI
+from APPIL_DNN.path_helper import PathHelper
 
 temp_filename = os.path.abspath(tempfile.gettempdir() + '/' + 'preview_temp.jpg')
 
@@ -144,7 +144,7 @@ def read_nrrd(input, slice_selection=.5):
                 except RuntimeError:
                     counter += 1
                     if counter >= len(input_files):
-                        CLI.exit_error("Not enough valid images to create a {0}x{1} grid".format(*grid_size))
+                        PathHelper.exit_error("Not enough valid images to create a {0}x{1} grid".format(*grid_size))
                     is_error = True
 
             image_size = image.GetSize()
@@ -154,12 +154,11 @@ def read_nrrd(input, slice_selection=.5):
             selected_slice = int(image_size[2] * slice_pct)
             nd_image = sitk.GetArrayFromImage(image)
             slc = nd_image[selected_slice, :, :]
-            slc /= np.max(np.abs(slc), axis=0)
-            slc *= 255.0
+            # slc /= np.max(np.abs(slc), axis=0)
+            # slc *= 255.0
             images.append(sitk.GetImageFromArray(slc))
 
     return images
-
 
 
 if is_numpy:

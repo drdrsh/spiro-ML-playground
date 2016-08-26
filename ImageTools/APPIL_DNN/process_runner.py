@@ -4,97 +4,109 @@ import os
 import subprocess
 import sys
 import time
+import threading
+from queue import *
 
 from APPIL_DNN.config import Config
+from APPIL_DNN.basic_stdout import BasicStdout
 
 
 class ProcessRunner:
+
     def __init__(self, fmt, max_process=None):
 
         self.max_process = Config.get('max_process')
         if max_process is not None:
             self.max_process = max_process
-        self.processes = []
-        self.format = fmt
-        self.files_done = 0
-        self.files_total = 0
-        self.queue = []
+        self.threads = []
+        self.q = Queue()
+        self.std_printer = BasicStdout.get_instance()
+        self.std_printer.set_format(fmt)
+        self.std_printer.set_variables({
+            'total_files': 0,
+            'files_done': 0,
+            'files_done_pct': 0
+        })
+
+        formatter = logging.Formatter("[%(asctime)s]  %(name)-12s %(levelname)s: %(message)s", style="{")
+
         self.logger = logging.getLogger('process_runner')
-        handler = logging.FileHandler('process_runner.log')
-        handler.setLevel(logging.INFO)
-        self.logger.addHandler(handler)
+        file_handler = logging.FileHandler("process_runner.log")
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(logging.DEBUG)
+        self.logger.addHandler(file_handler)
+
+        self.exit_flag = False
 
     def enqueue(self, file_count, params):
-        self.files_total += file_count
-        self.queue.append((file_count, params))
+        total_files = self.std_printer.get_variable('total_files')
+        self.std_printer.set_variable('total_files', total_files + file_count)
+        self.q.put((file_count, params))
 
-    def run(self):
+    def perform_task(self):
 
-        self.update_cli()
+        while not self.exit_flag:
+            data = self.q.get()
+            if data is None:
+                self.q.task_done()
+                break
+            file_count, params = data
 
-        str_now = datetime.datetime.now().strftime("[%d-%m-%Y %H:%M:%S]")
-        self.logger.info('{0} Started processing {1} files'.format(str_now, self.files_total))
-        for file_count, params in self.queue:
-            if len(self.processes) < self.max_process:
-                with open(os.devnull, 'w') as fp:
-                    p = subprocess.Popen(params, stdout=fp, stderr=fp)
-                    p.count = file_count
-                    p.cmd = " ".join(params)
-                    p.started = datetime.datetime.now()
-                    p.ended = None
-                    self.processes.append(p)
-            else:
-                self.wait_for_empty_spot()
-
-        self.wait_for_empty_queue()
-
-    def update_cli(self):
-        total_pct = 100 if self.files_total == 0 else  (self.files_done / self.files_total) * 100
-
-        sys.stdout.write(
-            self.format.format(
-                self.files_done,
-                self.files_total,
-                total_pct
+            started = datetime.datetime.now()
+            self.logger.debug("Process {cmd} started at {time}".format(**{
+                'cmd': " ".join(params),
+                'time': started.strftime('[%d-%m-%Y %H:%M:%S]')
+            }))
+            result = subprocess.run(
+                params,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True
             )
-        )
-        sys.stdout.flush()
+            ended = datetime.datetime.now()
+            elapsed = ended - started
+            self.logger.debug("Process {cmd} ended at {time} and ran in {elapsed} seconds : \n {out}".format(**{
+                'cmd': " ".join(params),
+                'out': result.stdout,
+                'time': ended.strftime('[%d-%m-%Y %H:%M:%S]'),
+                'elapsed': elapsed.seconds
+            }))
 
-    def wait_for_empty_spot(self):
-        while self.processes:
-            for proc in self.processes:
-                retcode = proc.poll()
-                if retcode is not None:  # Process finished.
-                    proc.ended = datetime.datetime.now()
-                    out, err = proc.communicate()
-                    started = proc.started.strftime("[%d-%m-%Y %H:%M:%S]")
-                    ended = proc.ended.strftime("[%d-%m-%Y %H:%M:%S]")
+            if len(result.stderr):
+                self.logger.error("Process {cmd} returned an error : \n {err}".format(**{
+                    'cmd': " ".join(params),
+                    'err': result.stderr
+                }))
 
-                    if retcode == 0:
-                        self.logger.debug(
-                            'Command {0} called on {1} ended in {2}\n{3}'
-                                .format(proc.cmd, started, ended, out)
-                        )
-                    else:
-                        self.logger.error(
-                            '<ERROR> Command {0} called on {1} ended in {2} caused an error\n{3}'
-                                .format(proc.cmd, started, ended, err)
-                        )
-                    self.processes.remove(proc)
-                    self.files_done += proc.count
-                    self.update_cli()
-                    break
-                else:  # No process is done, wait a bit and check again.
-                    time.sleep(.1)
-                    continue
+            self.logger.handlers[0].flush()
+            files_done = self.std_printer.get_variable('files_done') + file_count
+            total_files = self.std_printer.get_variable('total_files')
 
-    def wait_for_empty_queue(self):
-        while self.processes:
-            for proc in self.processes:
-                retcode = proc.poll()
-                if retcode is not None:  # Process finished.
-                    self.processes.remove(proc)
-                    self.files_done += proc.count
-                    self.update_cli()
-                else:  # No process is done, wait a bit and check again.
-                    time.sleep(.1)
+            self.std_printer.set_variable('files_done', files_done)
+            self.std_printer.set_variable('files_done_pct', (files_done / total_files) * 100)
+
+            self.q.task_done()
+
+    def cancel(self):
+        self.exit_flag = True
+
+    def start(self):
+
+        for c in range(self.max_process):
+            t = threading.Thread(target=self.perform_task)
+            t.daemon = True
+            t.start()
+            self.threads.append(t)
+            self.q.put(None)
+
+        try:
+            while True:
+                time.sleep(100)
+                # self.q.
+
+        except (KeyboardInterrupt, SystemExit):
+            print('\nQuitting, please wait....\n')
+            self.cancel()
+            # self.q.join()
+            for t in self.threads:
+                t.join()
