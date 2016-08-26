@@ -119,7 +119,7 @@ def read_npy(input, slice_selection=.5):
     for i in range(len(bins)):
         print("\t {0} => {1} ({2:.1f}%) ".format(i, bins[i], 100 * (bins[i] / total)))
 
-    labels.shape = grid_size
+    labels.shape = (grid_size[1], grid_size[0])
 
     print("\nLabels for the image grid, each entry in the array corresponds to an image in the grid")
     print(labels)
