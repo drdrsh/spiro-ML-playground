@@ -472,7 +472,7 @@ int main(int argc, const char* argv[]) {
 			return EXIT_FAILURE;
 		}
 
-		if (augment_count <= 0) {
+		if (augment_count < 0) {
 			std::cerr << "Invalid number of replications." << std::endl;
 			return EXIT_FAILURE;
 		}

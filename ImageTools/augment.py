@@ -84,7 +84,7 @@ for input_file in input_files:
         params.append("--" + k + "-prob")
         params.append(str(v))
 
-    runner.enqueue(count, params)
+    runner.enqueue(1 + count, params)
 
 runner.start()
 

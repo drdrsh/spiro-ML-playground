@@ -11,7 +11,7 @@ from APPIL_DNN.config import Config
 if len(sys.argv) > 1:
     Config.load(sys.argv[1])
 
-ref_dim = Config.get('reference_dimensions')
+# ref_dim = Config.get('reference_dimensions')
 segment_enabled = Config.get('segment_enabled')
 active_shrink_factor = Config.get('active_shrink_factor')
 batch_max_size = int(float(Config.get('batch_max_size')) * 1024 * 1024)
@@ -23,6 +23,7 @@ num_examples, num_classes, labels_table = DataHelper.get_labels()
 print('\nOutput image size is ' + str(output_dimensions) + '\n')
 
 runs = ['train', 'valid', 'test']
+# runs = ['valid', 'test']
 
 mode = 1 if segment_enabled else 0
 input_path = PathHelper.get_dataset_path(dataset_name, 'train', 'nrrd')
