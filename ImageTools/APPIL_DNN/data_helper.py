@@ -61,9 +61,13 @@ class DataHelper:
 
             arr = ImageHelper.read_image(image_path, output_dimensions)
             if arr is None:
-                files_done = std_printer.get_variable('files_done') + 1
-                std_printer.set_variable('files_done', files_done)
-                std_printer.set_variable('files_done_pct', (files_done / total_files) * 100)
+                with std_printer as vars:
+                    vars['files_done'] += 1
+                    if vars['total_files'] != 0:
+                        vars['files_done_pct'] = (vars['files_done'] / vars['total_files']) * 100
+                    else :
+                        vars['files_done_pct'] = 0
+
                 continue
 
             # Zero center and normalize data
@@ -79,21 +83,24 @@ class DataHelper:
                 Y = []
                 cum_batch_size = 0
                 batch_number += 1
-                batches_written = std_printer.get_variable('batches_written') + 1
-                std_printer.set_variable('batches_written', batches_written)
+                with std_printer as vars:
+                    vars['batches_written'] += 1
 
             cum_batch_size += arr.nbytes
 
             X.append(arr)
             Y.append(cls)
 
-            files_done = std_printer.get_variable('files_done') + 1
-            std_printer.set_variable('files_done', files_done)
-            std_printer.set_variable('files_done_pct', (files_done / total_files) * 100)
+            with std_printer as vars:
+                vars['files_done'] += 1
+                if vars['total_files'] != 0:
+                    vars['files_done_pct'] = (vars['files_done'] / vars['total_files']) * 100
+                else :
+                    vars['files_done_pct'] = 0
 
         DataHelper.write_batch(X, Y, batch_number, output_path)
-        batches_written = std_printer.get_variable('batches_written') + 1
-        std_printer.set_variable('batches_written', batches_written)
+        with std_printer as vars:
+            vars['batches_written'] += 1
         std_printer.add_line("Done!")
 
     @staticmethod

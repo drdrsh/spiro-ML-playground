@@ -5,7 +5,7 @@ import subprocess
 import sys
 import time
 import threading
-from queue import *
+import queue
 
 from APPIL_DNN.config import Config
 from APPIL_DNN.basic_stdout import BasicStdout
@@ -19,7 +19,8 @@ class ProcessRunner:
         if max_process is not None:
             self.max_process = max_process
         self.threads = []
-        self.q = Queue()
+        self.fmt = fmt
+        self.q = queue.Queue()
         self.std_printer = BasicStdout.get_instance()
         self.std_printer.set_format(fmt)
         self.std_printer.set_variables({
@@ -46,10 +47,13 @@ class ProcessRunner:
     def perform_task(self):
 
         while not self.exit_flag:
-            data = self.q.get()
-            if data is None:
-                self.q.task_done()
-                break
+            data = None
+
+            try:
+                data = self.q.get_nowait()
+            except:
+                return
+
             file_count, params = data
 
             started = datetime.datetime.now()
@@ -79,11 +83,13 @@ class ProcessRunner:
                 }))
 
             self.logger.handlers[0].flush()
-            files_done = self.std_printer.get_variable('files_done') + file_count
-            total_files = self.std_printer.get_variable('total_files')
 
-            self.std_printer.set_variable('files_done', files_done)
-            self.std_printer.set_variable('files_done_pct', (files_done / total_files) * 100)
+            with self.std_printer as vars:
+                vars['files_done'] += 1
+                if vars['total_files'] != 0:
+                    vars['files_done_pct'] = (vars['files_done'] / vars['total_files']) * 100
+                else :
+                    vars['files_done_pct'] = 0
 
             self.q.task_done()
 
@@ -97,16 +103,18 @@ class ProcessRunner:
             t.daemon = True
             t.start()
             self.threads.append(t)
-            self.q.put(None)
+
+
 
         try:
             while True:
-                time.sleep(100)
-                # self.q.
+                time.sleep(1)
+                if self.q.empty():
+                    break
 
         except (KeyboardInterrupt, SystemExit):
-            print('\nQuitting, please wait....\n')
+            self.fmt = self.fmt + " ---- Quitting, please wait...."
+            self.std_printer.set_format(self.fmt)
             self.cancel()
-            # self.q.join()
             for t in self.threads:
                 t.join()

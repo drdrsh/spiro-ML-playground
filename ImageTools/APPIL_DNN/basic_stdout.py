@@ -11,7 +11,10 @@ class BasicStdout:
             self.variables = {}
 
         def set_format(self, fmt):
+            self.lock.acquire()
             self.format = fmt
+            sys.stdout.flush()
+            self.lock.release()
 
         def get_variable(self, key):
             return self.variables[key]
@@ -22,8 +25,20 @@ class BasicStdout:
             self.lock.release()
             self.update()
 
+
         def set_variables(self, variables):
             self.variables = variables
+
+        def __enter__(self):
+            self.lock.acquire()
+            self.is_within_with = True
+            return self.variables
+
+        def __exit__(self, type, value, traceback):
+            self.lock.release()
+            self.update()
+
+
 
         def add_line(self, text):
             self.lock.acquire()
