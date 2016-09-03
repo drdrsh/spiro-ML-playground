@@ -1,5 +1,4 @@
 import numpy as np
-import tensorflow as tf
 import json
 import os
 import sys
@@ -54,7 +53,7 @@ biases = {
 
 class ModelLoader:
     
-    def __init__(self, path):
+    def __init__(self, path, debug_only=False):
 
         basename = os.path.basename(os.path.normpath(path))
         json_path = os.path.abspath(path + '/config.json')
@@ -67,8 +66,7 @@ class ModelLoader:
 
         s = list(self.config['data_shape'])
         s += [1]
-        self.net_builder = NetCalc(s, self.config['n_classes'])
-
+        self.net_builder = NetCalc(s, self.config['n_classes'], self.config['batch_size'], print_only=debug_only)
 
     def get_x(self):
         return self.net_builder.getX()

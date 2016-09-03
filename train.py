@@ -51,6 +51,8 @@ with tf.name_scope('dropout'):
     tf.scalar_summary('dropout_keep_probability', keep_prob)
 
 pred = model.get_nn()
+
+
 # Construct model
 # pred = conv_net(x, data_shape, model.get_weights(), model.get_biases(), keep_prob)
 
