@@ -120,13 +120,13 @@ class DatasetManager:
             async=False
         )
 
-    def next_batch(self, batch_size):
+    def next_batch(self, batch_size, in_original_shape=False):
         
         ds = self.datasets[str(self.active_dataset_index)]
         if ds._epochs_completed > self.epochs_per_ds:
             ds = self.next_dataset()
-        return ds.next_batch(batch_size)
-    
+            
+        return ds.next_batch(batch_size, in_original_shape=in_original_shape)
 
 class DatasetLoader(threading.Thread):
     
@@ -249,7 +249,7 @@ class Dataset:
         return None
 
         
-    def next_batch(self, batch_size):
+    def next_batch(self, batch_size, in_original_shape=False):
         """Return the next `batch_size` examples from this data set."""
         start = self._index_in_epoch
         self._index_in_epoch += batch_size
@@ -266,4 +266,11 @@ class Dataset:
             self._index_in_epoch = batch_size
             assert batch_size <= self._num_examples
         end = self._index_in_epoch
-        return self.X[start:end], self.Y[start:end]
+        
+        data_out = self.X[start:end]
+        if in_original_shape:
+            s = list(self.original_X_shape)
+            s[0] = batch_size
+            s.append(1)
+            data_out.shape = s
+        return data_out, self.Y[start:end]

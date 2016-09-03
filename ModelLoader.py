@@ -3,6 +3,10 @@ import tensorflow as tf
 import json
 import os
 import sys
+import string
+import random
+
+from ImageTools.APPIL_DNN.net_calc import NetCalc
 
 '''
 # Number of neurons = Output Volume Size 
@@ -61,78 +65,36 @@ class ModelLoader:
         self.path = path
         self.config['id'] = basename
 
-        current_output_shape = np.array(self.config['data_shape'])
-        filter_size = self.config['params']['wc1']['filter_size']
-        filter_count= self.config['params']['wc1']['filter_count']
-        self.wc1_list = [filter_size, filter_size, filter_size, 1, filter_count]
-        current_output_shape = current_output_shape
-        print('after conv1' + str(current_output_shape))
-        
-        # After maxpooling 1
-        k = self.config['params']['mp1']['k']
-        s = self.config['params']['mp1']['s']
-        current_output_shape = ((current_output_shape - k) / s) + 1
-        print('after maxpool1' + str(current_output_shape))
-        
-        filter_size = self.config['params']['wc2']['filter_size']
-        filter_count= self.config['params']['wc2']['filter_count']
-        self.wc2_list = [filter_size, filter_size, filter_size, filter_count, filter_count]
-        current_output_shape = current_output_shape
-        print('after conv2' + str(current_output_shape))
+        s = list(self.config['data_shape'])
+        s += [1]
+        self.net_builder = NetCalc(s, self.config['n_classes'])
 
-        # After maxpooling 2
-        k = self.config['params']['mp2']['k']
-        s = self.config['params']['mp2']['s']
-        current_output_shape = ((current_output_shape - k) / s) + 1
-        print('after maxpool2' + str(current_output_shape))
 
-        outputs = self.config['params']['wd1']['size']
-        sz = int(current_output_shape[0] * current_output_shape[1] * current_output_shape[2])
-        self.wd1_list = [sz*filter_count, outputs]
-        
-        # print(self.wc1_list)
-        # print(self.wc2_list)
-        # print(self.wc2_list)
-        # print(self.wd1_list)
-        
-    
-    def get_weights(self):
-        
-        self.weights = {}
-        
-        self.weights['wc1'] = tf.Variable(tf.random_normal(self.wc1_list))
-        self.weights['wc2'] = tf.Variable(tf.random_normal(self.wc2_list))
-        
-        self.weights['mp1'] = self.config['params']['mp1']
-        self.weights['mp2'] = self.config['params']['mp2']
-        
-        self.weights['wd1'] = tf.Variable(tf.random_normal(self.wd1_list))
-        self.weights['out'] = tf.Variable(tf.random_normal([self.wd1_list[1], self.config['n_classes']]))
-        
-        return self.weights
-    
-    def get_biases(self):
-        
-        self.biases = {}
+    def get_x(self):
+        return self.net_builder.getX()
 
-        filter_count= self.config['params']['wc1']['filter_count']
-        self.biases['bc1'] = tf.Variable(tf.random_normal([filter_count]))
+    def get_nn(self):
+        return self.net_builder.build_from_config(self.config)
 
-        filter_count= self.config['params']['wc2']['filter_count']
-        self.biases['bc2'] = tf.Variable(tf.random_normal([filter_count]))
-        
-        output_size = self.config['params']['wd1']['size']
-        self.biases['bd1'] = tf.Variable(tf.random_normal([output_size]))
-        
-        self.biases['out'] = tf.Variable(tf.random_normal([self.config['n_classes']]))
-        
-        return self.biases
-    
     def get_config(self, key):
         return self.config[key]
         
-    def get_log_path(self, log_type, suffix):
-        return os.path.abspath(self.path + '/logs/' + log_type + '/' + suffix + '/')
+    def get_log_path(self, log_type):
+
+        log_root = os.path.abspath(self.path + '/logs/' + log_type + '/')
+
+        values_taken = []
+        all_files = os.listdir(log_root)
+        for i in all_files:
+            if os.path.isdir(log_root + '/' + i):
+                values_taken.append(int(i[0]))
+
+        new_prefix = 0 if len(values_taken) == 0 else max(values_taken) + 1
+        rand_suffix = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))
+
+        dir_name = "{0}_{1}".format(new_prefix, rand_suffix)
+
+        return os.path.abspath(self.path + '/logs/' + log_type + '/' + dir_name + '/')
 
     def get_model_filename(self, suffix):
         d = os.path.abspath(self.path + '/models/' + suffix + '.ckpt')

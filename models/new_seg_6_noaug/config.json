@@ -10,25 +10,27 @@
 	"display_step"   : 10,
 	"n_classes"	 : 2,
 	"dropout"	 : 0.75,
-	"params"	 : {
-		"wc1" :  {
-			"filter_size" : 7,
-			"filter_count": 48
-		},
-		"mp1" : {
-			"k": 3,
-			"s": 1
-		},
-		"wc2" :  {
-			"filter_size" : 7,
-			"filter_count": 48
-		},
-		"mp2" : {
-			"k": 2,
-			"s": 4
-		},
-		"wd1": {
-			"size": 256
-		}
-	}
+	"arch"	 : [{
+		"type": "conv",
+		"filter_size": 7,
+		"filter_count": 48,
+		"stride": 1
+	}, {
+		"type": "pool",
+		"size": 3,
+		"stride": 1
+	}, {
+		"type": "conv",
+		"filter_size": 7,
+		"filter_count": 48,
+		"stride": 1
+	}, {
+		"type": "pool",
+		"size": 3,
+		"stride": 1
+	}, {
+
+		"type": "fc",
+		"count": 256
+	}]
 }
