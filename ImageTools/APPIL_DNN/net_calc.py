@@ -38,6 +38,7 @@ class NetCalc:
         self.conv_counter = 0
         self.memory_footprint = 0
         self.data_format = tf.float32
+        self.regularizers = None
 
         self.print_only = print_only
 
@@ -69,6 +70,9 @@ class NetCalc:
             num /= 1024.0
         return "%.1f%s%s" % (num, 'Yi', suffix)
 
+    def get_reg(self):
+        return  self.regularizers
+
     def fc_b(self, x, w, b, d, name, is_out=False):
 
         # Fully connected layer
@@ -76,9 +80,15 @@ class NetCalc:
         net = tf.add(tf.matmul(net, w), b)
         if not is_out:
             net = tf.nn.relu(net)
-            # net = tf.nn.dropout(net, d)
+            net = tf.nn.dropout(net, 0.5)
+
+        if self.regularizers is None:
+            self.regularizers = tf.nn.l2_loss(w) + tf.nn.l2_loss(b)
+        else :
+            self.regularizers += tf.nn.l2_loss(w) + tf.nn.l2_loss(b)
 
         return net
+
 
     def conv_b(self, x, W, b, name, stride=1, padding='VALID'):
 

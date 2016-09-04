@@ -59,6 +59,9 @@ with tf.name_scope('cross_entropy'):
     with tf.name_scope('total'):
         cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(pred, y))
         tf.scalar_summary('cost', cost)
+        reg = model.net_builder.get_reg()
+        tf.scalar_summary('reg', reg)
+        cost += 5e-4 * reg
 
 # optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost, global_step=global_step)
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
@@ -88,7 +91,7 @@ sess.run(init)
 step = 1
 
 with sess:
-    test_batch_x, test_batch_y = data_manager.next_batch("test", batch_size)
+    test_batch_x, test_batch_y = data_manager.next_batch("test", batch_size * 2)
     test_dict = {
         x: test_batch_x,
         y: test_batch_y,
