@@ -3,6 +3,7 @@
 	"id"		 : "segnoaug_6_1",
 	"train_data_path": "/home/mostafa/BigSpiroData/datasets/ds_6_seg_noaug/train/np/",
 	"test_data_path" : "/home/mostafa/BigSpiroData/datasets/ds_6_seg_noaug/test/np/",
+	"validation_data_path" : "/home/mostafa/BigSpiroData/datasets/ds_6_seg_noaug/valid/np/",
 	"data_shape"	 : [84, 84, 84],
 	"padding_shape"  : [84, 84, 84],
 	"learning_rate"  : 0.001,

@@ -17,11 +17,12 @@ model = ModelLoader(sys.argv[1], debug_only=True)
 data_manager = Dataset.DatasetManager(
     train=model.get_config('train_data_path'),
     test=model.get_config('test_data_path'),
+    validation=model.get_config('validation_data_path'),
     target_shape=model.get_config('padding_shape'),
     output_shape=model.get_config('data_shape')
+
 )
 
-ds = data_manager.get_current_dataset()
 
 # Network Parameters
 n_classes = model.get_config('n_classes')
