@@ -65,7 +65,6 @@ class ModelLoader:
         self.config['id'] = basename
 
         s = list(self.config['data_shape'])
-        s += [1]
         self.net_builder = NetCalc(s, self.config['n_classes'], self.config['batch_size'], print_only=debug_only)
 
     def get_x(self):

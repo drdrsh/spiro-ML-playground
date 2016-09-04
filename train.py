@@ -18,7 +18,8 @@ model = ModelLoader(sys.argv[1])
 data_manager = Dataset.DatasetManager(
     train=model.get_config('train_data_path'),
     test=model.get_config('test_data_path'),
-    target_shape=model.get_config('data_shape')
+    target_shape=model.get_config('padding_shape'),
+    output_shape=model.get_config('data_shape')
 )
 
 tf.reset_default_graph()
@@ -28,8 +29,6 @@ sess = tf.Session()
 ds = data_manager.get_current_dataset()
 
 # Network Parameters
-data_shape = [ds.original_X_shape[1], ds.original_X_shape[2], ds.original_X_shape[3]]
-n_input = ds.original_X_shape[1] * ds.original_X_shape[2] * ds.original_X_shape[3]  # Input size
 n_classes = model.get_config('n_classes')
 dropout = model.get_config('dropout')
 
@@ -85,14 +84,12 @@ init = tf.initialize_all_variables()
 
 sess.run(init)
 
-# Load test dataset
-test_dataset = data_manager.get_test_dataset()
 
 # Launch the graph
 step = 1
 
 with sess:
-    test_batch_x, test_batch_y = test_dataset.next_batch(batch_size, in_original_shape=True)
+    test_batch_x, test_batch_y = data_manager.next_batch(batch_size, name="test")
     test_dict = {
         x: test_batch_x,
         y: test_batch_y,
@@ -102,7 +99,7 @@ with sess:
     # Keep training until reach max iterations
     while step * batch_size < training_iters:
 
-        batch_x, batch_y = data_manager.next_batch(batch_size, in_original_shape=True)
+        batch_x, batch_y = data_manager.next_batch(batch_size, name="train")
         train_dict = {
             x: batch_x,
             y: batch_y,

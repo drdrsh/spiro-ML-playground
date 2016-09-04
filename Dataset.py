@@ -15,16 +15,19 @@ class DatasetManager:
                  train=None,
                  test =None, 
                  epochs_per_ds=5,
-                 target_shape=None):
+                 target_shape=None,
+                 output_shape=None):
         
         
         self.fake_data = False
         self.data_path = train
         self.test_path = test
         self.target_shape = target_shape
+        self.output_shape = output_shape
         self.number_of_datasets = 2
         self.datasets = {}
         self.epochs_per_ds = epochs_per_ds
+        self.test_dataset = None
         
         if train is not None and test is not None:
             self.data_files = glob.glob(self.data_path + "data_*")
@@ -107,26 +110,33 @@ class DatasetManager:
         return ds
 
  
-    def get_test_dataset(self):
+    def load_test_dataset(self):
         if self.fake_data:
             return self.datasets['0']
         
         ds = Dataset()
         data_filename, labels_filename = self.get_random_dataset_pair('test')
-        return ds.load(
+        self.test_dataset = ds.load(
             data_filename=data_filename, 
             labels_filename=labels_filename, 
             target_shape=self.target_shape,
             async=False
         )
 
-    def next_batch(self, batch_size, in_original_shape=False):
-        
-        ds = self.datasets[str(self.active_dataset_index)]
-        if ds._epochs_completed > self.epochs_per_ds:
-            ds = self.next_dataset()
-            
-        return ds.next_batch(batch_size, in_original_shape=in_original_shape)
+
+    def next_batch(self, batch_size, name="train"):
+
+        ds = None
+        if name == 'train':
+            ds = self.datasets[str(self.active_dataset_index)]
+            if ds._epochs_completed > self.epochs_per_ds:
+                ds = self.next_dataset()
+        if name =='test':
+            if self.test_dataset is None:
+                self.load_test_dataset()
+            ds = self.test_dataset
+
+        return ds.next_batch(batch_size, output_shape=self.output_shape)
 
 class DatasetLoader(threading.Thread):
     
@@ -249,7 +259,7 @@ class Dataset:
         return None
 
         
-    def next_batch(self, batch_size, in_original_shape=False):
+    def next_batch(self, batch_size, output_shape=None):
         """Return the next `batch_size` examples from this data set."""
         start = self._index_in_epoch
         self._index_in_epoch += batch_size
@@ -268,9 +278,9 @@ class Dataset:
         end = self._index_in_epoch
         
         data_out = self.X[start:end]
-        if in_original_shape:
-            s = list(self.original_X_shape)
-            s[0] = batch_size
-            s.append(1)
-            data_out.shape = s
+        if output_shape is not None:
+            shp =  [batch_size] + output_shape
+            data_out.shape = shp
+        print(data_out.shape)
+        assert len(data_out.shape) > 2
         return data_out, self.Y[start:end]
