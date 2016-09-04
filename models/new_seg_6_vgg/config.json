@@ -1,0 +1,62 @@
+{
+	"title"		 : "Seg 6x Model",
+	"id"		 : "seg_6_1",
+	"train_data_path": "/home/mostafa/BigSpiroData/datasets/ds_6_seg/train/np/",
+	"test_data_path" : "/home/mostafa/BigSpiroData/datasets/ds_6_seg/test/np/",
+	"validation_data_path" : "/home/mostafa/BigSpiroData/datasets/ds_6_seg/valid/np/",
+	"data_shape"	 : [84, 84, 84],
+	"padding_shape"  : [84, 84, 84],
+	"learning_rate"  : 0.001,
+	"training_iters" : 4000000,
+	"batch_size"	 : 3,
+	"display_step"   : 10,
+	"n_classes"	 : 2,
+	"dropout"	 : 0.75,
+	"arch"	 : [{
+		"type": "conv",
+		"filter_size": 7,
+		"filter_count": 48,
+		"stride": 1,
+		"maintain_spatial": true
+	}, {
+		"type": "pool",
+		"size": 6,
+		"stride": 2
+	}, {
+		"type": "conv",
+		"filter_size": 7,
+		"filter_count": 96,
+		"stride": 1,
+		"maintain_spatial": true
+	}, {
+		"type": "pool",
+		"size": 6,
+		"stride": 2
+	}, {
+		"type": "conv",
+		"filter_size": 3,
+		"filter_count": 192,
+		"stride": 1,
+		"maintain_spatial": true
+	}, {
+		"type": "conv",
+		"filter_size": 3,
+		"filter_count": 384,
+		"stride": 1,
+		"maintain_spatial": true
+	}, {
+		"type": "conv",
+		"filter_size": 3,
+		"filter_count": 256,
+		"stride": 1,
+		"maintain_spatial": true
+	}, {
+		"type": "pool",
+		"size": 6,
+		"stride": 3
+	}, {
+
+		"type": "fc",
+		"count": 1024
+	}]
+}
