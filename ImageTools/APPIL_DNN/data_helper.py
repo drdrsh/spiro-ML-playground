@@ -8,6 +8,7 @@ from APPIL_DNN.config import Config
 from APPIL_DNN.path_helper import PathHelper
 from APPIL_DNN.basic_stdout import BasicStdout
 from APPIL_DNN.image_helper import ImageHelper
+from APPIL_DNN.image_path_helper import ImagePathHelper
 
 
 class DataHelper:
@@ -28,7 +29,12 @@ class DataHelper:
 
         num_examples, num_classes, labels = DataHelper.get_labels()
         std_printer = BasicStdout.get_instance()
-        images = PathHelper.glob(input_path + "/*.nrrd")
+
+        # require a uniform distribution of data
+        dist = [1/num_classes] * num_classes
+
+        images = ImagePathHelper.get_image_list(input_path, dist=dist, count=None, exclude=None)
+        # images = PathHelper.glob(input_path + "/*.nrrd")
         random.shuffle(images)
 
         total_files = len(images)

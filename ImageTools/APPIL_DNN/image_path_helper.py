@@ -1,17 +1,51 @@
 import os
-import sys
-import glob
 import random
 import copy
+import csv
 import numpy as np
 
 from APPIL_DNN.config import Config
-from APPIL_DNN.data_helper import DataHelper
 from APPIL_DNN.path_helper import PathHelper
 
 
 class ImagePathHelper:
 
+    @staticmethod
+    def get_labels():
+        root = Config.get('data_root')
+        labels_file = os.path.abspath('/'.join([root, 'original_data', 'labels.csv']))
+        num_examples = 0
+        num_classes = 0
+        result = {}
+        with open(labels_file, 'r') as csvfile:
+            csv_reader = csv.DictReader(csvfile, delimiter=',', quotechar='|')
+            for row in csv_reader:
+                record_id = row['record_id']
+                num_examples += 1
+
+                emphysema = 0 if row['emphysema'] == '' else int(row['emphysema'])
+                bronchiectasis = 0 if row['bronchiectasis1'] == '' else int(row['bronchiectasis1'])
+
+                cls = -1
+
+                if emphysema == 0 and bronchiectasis == 0:
+                    cls = 0
+                if emphysema == 1 and bronchiectasis == 0:
+                    cls = 1
+                if emphysema == 0 and bronchiectasis == 1:
+                    cls = 2
+                if emphysema == 1 and bronchiectasis == 1:
+                    cls = 3
+
+                # This will set up a 4 class dataset
+                # result[record_id] = cls
+                # num_classes = 4
+
+                # This will set up a 2 class dataset
+                result[record_id] = emphysema
+                num_classes = 2
+
+            return num_examples, num_classes, result
 
     @staticmethod
     def get_image_list(input_path, dist=None, count=None, exclude=None):
@@ -31,10 +65,12 @@ class ImagePathHelper:
             else:
                 return input_files[0:count]
 
-        num_examples, num_classes, labels = DataHelper.get_labels()
+        num_examples, num_classes, labels = ImagePathHelper.get_labels()
 
+        is_relative_count = True
         if dist is not None:
             if sum(dist) != 1.0:
+                is_relative_count = False
                 max_dist = sum(dist)
                 for idx, val in enumerate(dist):
                     dist[idx] /= max_dist
@@ -44,19 +80,43 @@ class ImagePathHelper:
                 # raise ValueError("You have to specify a total count of samples")
 
         count_per_class = np.int16((np.array(dist) * count))
+        remaining_count_per_class = np.copy(count_per_class)
 
-        selected_files = []
+        selected_files = {}
         for idx, val in enumerate(input_files):
             record_id = ((os.path.splitext(os.path.basename(val))[0]).split('_'))[0]
             label = labels[record_id]
-            if count_per_class[label] != 0:
-                selected_files.append(val)
-                count_per_class[label] -= 1
+            if remaining_count_per_class[label] != 0:
+                if label not in selected_files:
+                    selected_files[label] = []
+                selected_files[label].append(val)
+                remaining_count_per_class[label] -= 1
 
-            if sum(count_per_class) == 0:
-                return selected_files
+            if sum(remaining_count_per_class) == 0:
+                total_files = []
+                for key in selected_files:
+                    total_files.extend(selected_files[key])
+                return total_files
 
-        raise StopIteration("Required number of file could not be fulfilled from input directory")
+        # The distribution is specified in terms of absolute counts and we couldn't meet that count
+        # Exit with an error
+        if not is_relative_count:
+            raise StopIteration("Required number of file could not be fulfilled from input directory")
+
+        # The distribution was specified in terms of relative counts, we couldn't meet that so we simply reduce
+        # the size of the output dataset so that the balance is kept
+        class_size = min(count_per_class - remaining_count_per_class)
+
+        total_files = []
+        for key in selected_files:
+            file_list = selected_files[key]
+            if len(file_list) > class_size:
+                file_list = file_list[0:class_size]
+            print(len(file_list))
+            total_files.extend(file_list)
+
+        return total_files
+
 
 
     @staticmethod
@@ -64,7 +124,7 @@ class ImagePathHelper:
         input_files = PathHelper.glob(os.path.join(input_path, "*.nrrd"))
         random.shuffle(input_files)
 
-        num_examples, num_classes, labels = DataHelper.get_labels()
+        num_examples, num_classes, labels = ImagePathHelper.get_labels()
 
         if dist is not None:
             if sum(dist) != 1.0:

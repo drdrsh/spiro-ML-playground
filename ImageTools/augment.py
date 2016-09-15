@@ -15,8 +15,10 @@ from APPIL_DNN.data_helper import DataHelper
 if len(sys.argv) > 1:
     Config.load(sys.argv[1])
 
-min_count = Config.get('augmentation.min_count')
-max_count = Config.get('augmentation.max_count')
+# min_count = Config.get('augmentation.min_count')
+# max_count = Config.get('augmentation.max_count')
+
+target_dataset_count = Config.get('augmentation.total_count')
 
 segment_enabled = Config.get('segment_enabled')
 active_shrink_factor = Config.get('active_shrink_factor')
@@ -40,13 +42,12 @@ for input_file in input_files:
     dist.append(label)
 
 # This will decide how many replicas are created for each file based on its class so that we can acheive class balance
+target_count_per_class = target_dataset_count / num_classes
 dist = np.array(dist)
-bins = np.bincount(dist)
-flip = np.abs((bins / np.sum(bins)) - 1.0)
-additional = max_count - min_count
-counts = np.int16(np.ceil(additional * flip) + min_count)
-
+counts = np.int16(target_count_per_class / np.bincount(dist))
 thread_count = int(Config.get('max_process') / 2)
+print("Classes will be augmented by a factor of " + str(counts))
+
 runner = ProcessRunner(
     'Performing image augmentation, {files_done} out of {total_files} files processed ({files_done_pct:.2f}%)\r',
     max_process=thread_count
